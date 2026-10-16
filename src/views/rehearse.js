@@ -471,7 +471,7 @@ export async function render(root, { id }) {
         clearTimeout(endTimer);
         if (m.complete) {
           const lastWord = m.matched[tokens.length - 1] || m.lastHit >= tokens.length - 2;
-          endTimer = setTimeout(() => complete(t.prompts ? 'prompted' : 'ok'), lastWord ? 250 : 1400);
+          endTimer = setTimeout(() => complete(t.prompts ? 'prompted' : 'ok'), lastWord ? 60 : 800);
         }
       };
 
