@@ -1,6 +1,6 @@
 import { h, toast, download, confirmDialog } from '../util.js';
 import { getSettings, saveSettings, exportBackup, importBackup, db } from '../store.js';
-import { getVoices, speak, cancelSpeech } from '../speech.js';
+import { getVoices, rankVoices, voiceLabel, speak, cancelSpeech } from '../speech.js';
 
 export async function render(root) {
   const s = getSettings();
@@ -8,7 +8,7 @@ export async function render(root) {
   const picker = h('select', {
     class: 'type-sel', 'aria-label': 'Narrator voice',
     onchange: (e) => saveSettings({ narratorURI: e.target.value }),
-  }, h('option', { value: '' }, 'Automatic'), voices.map((v) => h('option', { value: v.voiceURI, selected: v.voiceURI === s.narratorURI }, `${v.name} (${v.lang})`)));
+  }, h('option', { value: '' }, 'Automatic'), [...rankVoices(voices, s.lang), ...voices.filter((v) => !rankVoices(voices, s.lang).includes(v))].map((v) => h('option', { value: v.voiceURI, selected: v.voiceURI === s.narratorURI }, voiceLabel(v, s.lang))));
   const file = h('input', { type: 'file', accept: '.json,application/json', hidden: true });
   file.addEventListener('change', async () => {
     try {
@@ -31,7 +31,7 @@ export async function render(root) {
       h('label', { class: 'field' }, h('span', {}, 'Language (listening and default voices)'), lang),
       h('label', { class: 'field' }, h('span', {}, 'Narrator voice (stage directions)'), picker),
       h('button', { class: 'btn small', onclick: () => { cancelSpeech(); speak('Lights up. Whenever you are ready.', { voiceURI: picker.value, rate: s.speechRate }); } }, '▶ Test voice'),
-      h('p', { class: 'muted' }, 'Tip: wear headphones so the scene partner isn\'t picked up by your mic. Speech recognition needs Chrome, Edge or Safari, and an internet connection in most browsers.')),
+      h('p', { class: 'muted' }, 'Voices marked ★ are the most natural. On Mac/iPhone, add more under Settings → Accessibility → Spoken Content → Voices (choose Enhanced/Premium). Tip: wear headphones so the scene partner isn\'t picked up by your mic. Speech recognition needs Chrome, Edge or Safari, and an internet connection in most browsers.')),
     h('div', { class: 'panel' }, h('h3', {}, 'Backup'),
       h('p', { class: 'muted' }, 'Everything lives only on this device. Save a backup file to move it or keep it safe (audio recordings aren\'t included).'),
       h('div', { class: 'row gap wrap' },

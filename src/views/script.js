@@ -1,7 +1,7 @@
 import { h, toast, download, slug, confirmDialog, promptDialog, formatDate, formatDuration } from '../util.js';
 import { getScript, saveScript, sessionsFor, deleteSession, getRecording, getSettings, saveSettings } from '../store.js';
 import { listCharacters } from '../parser.js';
-import { getVoices, autoVoice, speak, cancelSpeech, sttSupported } from '../speech.js';
+import { getVoices, autoVoice, rankVoices, voiceLabel, speak, cancelSpeech, sttSupported } from '../speech.js';
 import { STRICTNESS } from '../matcher.js';
 import { lineStats, troubleLineIds, summarize, STATUS } from '../stats.js';
 import { toText, toFountain, toPDF } from '../exporters.js';
@@ -48,7 +48,7 @@ export async function render(root, { id }) {
         script.voices = { ...script.voices, [name]: e.target.value };
         saveScript(script);
       },
-    }, voices.map((v) => h('option', { value: v.voiceURI, selected: v.voiceURI === current }, `${v.name} (${v.lang})`)));
+    }, [...rankVoices(voices, settings.lang), ...voices.filter((v) => !rankVoices(voices, settings.lang).includes(v))].map((v) => h('option', { value: v.voiceURI, selected: v.voiceURI === current }, voiceLabel(v, settings.lang))));
     return h('div', { class: 'row gap center voice-row' },
       h('span', { class: 'grow' }, name),
       voices.length ? sel : h('span', { class: 'muted' }, 'Default voice'),

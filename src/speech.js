@@ -121,12 +121,43 @@ export function getVoices() {
 
 const hash = (s) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
 
-export function autoVoice(name, voices, lang = 'en') {
-  const pool = voices.filter((v) => v.lang.toLowerCase().startsWith(lang.slice(0, 2).toLowerCase()));
-  const list = pool.length ? pool : voices;
+const NOVELTY = /^(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|kathy|ralph|eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley)\b/i;
+
+export function voiceScore(v, lang = 'en-US') {
+  const n = v.name;
+  let s = 0;
+  if (NOVELTY.test(n)) return -100;
+  if (/premium|enhanced|neural|natural|online|siri/i.test(n)) s += 50;
+  if (/google/i.test(n)) s += 25;
+  if (/espeak|compact/i.test(n)) s -= 40;
+  if (/microsoft/i.test(n) && !/online|natural/i.test(n)) s -= 10;
+  if (v.lang.replace('_', '-').toLowerCase() === lang.toLowerCase()) s += 20;
+  if (!v.localService) s += 5;
+  return s;
+}
+
+export const rankVoices = (voices, lang = 'en-US') =>
+  voices
+    .filter((v) => v.lang.toLowerCase().startsWith(lang.slice(0, 2).toLowerCase()))
+    .map((v) => ({ v, s: voiceScore(v, lang) }))
+    .filter((x) => x.s > -50)
+    .sort((a, b) => b.s - a.s)
+    .map((x) => x.v);
+
+export function voiceLabel(v, lang) {
+  const sc = voiceScore(v, lang);
+  return `${sc >= 50 ? '★ ' : ''}${v.name} (${v.lang})`;
+}
+
+// Picks from the best few voices so each character sounds distinct yet natural.
+export function autoVoice(name, voices, lang = 'en-US') {
+  const ranked = rankVoices(voices, lang);
+  const list = ranked.length ? ranked : voices;
   if (!list.length) return { uri: '', pitch: 1 };
+  const top = list[0] ? voiceScore(list[0], lang) : 0;
+  const best = list.filter((v) => voiceScore(v, lang) >= top - 15).slice(0, 6);
   const h = hash(name);
-  return { uri: list[h % list.length].voiceURI, pitch: 0.85 + ((h >> 3) % 7) * 0.05 };
+  return { uri: best[h % best.length].voiceURI, pitch: 0.92 + ((h >> 3) % 5) * 0.04 };
 }
 
 let speakToken = 0;
