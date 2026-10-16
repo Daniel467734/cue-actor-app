@@ -549,7 +549,7 @@ export async function render(root, { id }) {
   // Pre-render the next few partner lines so they start the instant the actor finishes.
   function prefetchAhead(from) {
     let n = 0;
-    for (let k = from; k < queue.length && n < 2; k++) {
+    for (let k = from; k < queue.length && n < 3; k++) {
       const q = queue[k];
       if (q.type !== 'dialogue' || q.character === me) continue;
       const d = deliveryFor(script.items, script.items.indexOf(q));
@@ -564,7 +564,7 @@ export async function render(root, { id }) {
       renderContext(i);
       progressFill.style.width = `${(i / queue.length) * 100}%`;
       const mine = it.type === 'dialogue' && it.character === me;
-      if (!mine) setTimeout(() => !ended && prefetchAhead(i + 1), 700);
+      setTimeout(() => !ended && prefetchAhead(i + (mine ? 0 : 1)), mine ? 0 : 300);
       const a = mine ? await myTurn(it) : await partnerTurn(it);
       if (ended) break;
       if (a === 'stop') {

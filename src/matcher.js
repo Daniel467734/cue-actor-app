@@ -54,6 +54,7 @@ export function wordEq(a, b, level = 2) {
   if (len < 3) return false;
   if (sound(a) === sound(b)) return true;
   if (len === 3) return a[0] === b[0] && lev(a, b, 1) <= 1;
+  if (len >= 5 && lev(sound(a), sound(b), 1) <= 1) return true;
   const max = len >= 7 ? 3 : len >= 5 ? 2 : 1;
   return lev(a, b, max) <= max;
 }
