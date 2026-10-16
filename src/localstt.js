@@ -72,6 +72,7 @@ export class LocalListener {
       this.onError('Microphone access was blocked. Allow the mic in your browser settings and try again.');
       return;
     }
+    this.onStream?.(this.stream);
     try {
       await loadStt();
     } catch {

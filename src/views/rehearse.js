@@ -202,6 +202,7 @@ export async function render(root, { id }) {
     if (useLocal) listener.start();
     else if (sttSupported && !isMobile) listener.start();
     if (S.selftape) {
+      if (useLocal) listener.onStream = (st) => tape?.setMic(st);
       (async () => { for (let i = 0; i < 20 && useLocal && !listener.stream; i++) await sleep(250); return startSelfTape(stage, useLocal ? listener.stream : null); })().then((t) => {
         if (destroyed) t?.discard();
         else tape = t;

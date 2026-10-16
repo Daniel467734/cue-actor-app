@@ -19,12 +19,21 @@ export async function startSelfTape(parent, micStream = null) {
   forceSpeaker();
   const { ctx, dest } = audioTap();
   if (ctx.state === 'suspended') ctx.resume();
-  const micSrc = ctx.createMediaStreamSource(new MediaStream(audioTracks));
+  let micSrc = ctx.createMediaStreamSource(new MediaStream(audioTracks));
   const micGain = ctx.createGain();
   const cutDest = ctx.createMediaStreamDestination();
   micSrc.connect(micGain);
   micGain.connect(dest);
   micSrc.connect(cutDest);
+  // The listener may reopen its mic mid-scene; follow it so the recording keeps your voice.
+  const setMic = (stream) => {
+    const tracks = stream?.getAudioTracks() || [];
+    if (!tracks.length) return;
+    try { micSrc.disconnect(); } catch { /* gone */ }
+    micSrc = ctx.createMediaStreamSource(new MediaStream(tracks));
+    micSrc.connect(micGain);
+    micSrc.connect(cutDest);
+  };
   const type = pickType();
   const make = (audio) => {
     const rec = new MediaRecorder(new MediaStream([...cam.getVideoTracks(), ...audio.stream.getAudioTracks()]), type ? { mimeType: type } : undefined);
@@ -53,6 +62,7 @@ export async function startSelfTape(parent, micStream = null) {
     r.rec.stop();
   });
   return {
+    setMic,
     partner: (speaking) => {
       if (speaking) forceSpeaker();
       micGain.gain.value = speaking ? 0 : 1;
