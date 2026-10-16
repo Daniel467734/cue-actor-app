@@ -69,3 +69,18 @@ import('./speech.js').then(({ inAppBrowser }) => {
   bar.innerHTML = '<b>Open in your real browser.</b> This in-app browser (Messenger/Facebook/Instagram) blocks the microphone and voices. Tap the ⋯ menu and choose "Open in Chrome" or "Open in Safari", then Cue will work properly.';
   document.body.prepend(bar);
 });
+
+import('./speech.js').then(({ isMobile, inAppBrowser }) => {
+  if (!isMobile || inAppBrowser || sessionStorage.getItem('cue-desktop-note')) return;
+  const close = () => {
+    sessionStorage.setItem('cue-desktop-note', '1');
+    ov.remove();
+  };
+  const ov = h('div', { class: 'overlay', style: 'z-index:998' },
+    h('div', { class: 'dialog center', role: 'dialog' },
+      h('div', { style: 'font-size:2.2rem' }, '💻'),
+      h('h2', {}, 'Best on a computer for now'),
+      h('p', { class: 'muted' }, 'Cue is still in testing. Voices and listening work best in Chrome on a laptop or desktop. A proper phone app is planned. You\'re welcome to try it here, but it may be slower or less accurate.'),
+      h('button', { class: 'btn primary', onclick: close }, 'Got it')));
+  setTimeout(() => document.body.append(ov), 900);
+});
