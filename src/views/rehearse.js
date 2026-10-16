@@ -4,7 +4,7 @@ import { deliveryFor } from '../delivery.js';
 import { loadNeural } from '../neural.js';
 import { h, toast, formatDuration } from '../util.js';
 import { getScript, saveSession, saveRecording, sessionsFor, getSettings } from '../store.js';
-import { Listener, MicMonitor, speak, cancelSpeech, getVoices, autoVoice, sttSupported, chime } from '../speech.js';
+import { Listener, MicMonitor, speak, cancelSpeech, getVoices, autoVoice, sttSupported, chime, prefetchSpeech } from '../speech.js';
 import { matchLine, displayWords, hintFrom, detectCommand, tokenize, stripDirections } from '../matcher.js';
 import { troubleLineIds, summarize, lastResultPerLine, STATUS } from '../stats.js';
 import { keepAwake } from '../wake.js';
@@ -504,12 +504,25 @@ export async function render(root, { id }) {
     });
   }
 
+  // Pre-render the next few partner lines so they start the instant the actor finishes.
+  function prefetchAhead(from) {
+    let n = 0;
+    for (let k = from; k < queue.length && n < 2; k++) {
+      const q = queue[k];
+      if (q.type !== 'dialogue' || q.character === me) continue;
+      const d = deliveryFor(script.items, script.items.indexOf(q));
+      prefetchSpeech(d.text, { ...voiceFor(q.character), rate: S.speechRate * d.rate });
+      n++;
+    }
+  }
+
   async function loop() {
     while (i < queue.length && !ended) {
       const it = queue[i];
       renderContext(i);
       progressFill.style.width = `${(i / queue.length) * 100}%`;
       const mine = it.type === 'dialogue' && it.character === me;
+      prefetchAhead(i + 1);
       const a = mine ? await myTurn(it) : await partnerTurn(it);
       if (ended) break;
       if (a === 'stop') {

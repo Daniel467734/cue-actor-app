@@ -74,7 +74,7 @@ const DEFAULTS = {
   speechRate: 1,
   readDirections: false,
   record: true,
-  cueGap: 350,
+  cueGap: 150,
   lang: 'en-US',
   narratorURI: '',
   expressive: true,

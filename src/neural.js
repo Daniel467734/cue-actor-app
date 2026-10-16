@@ -96,13 +96,32 @@ function playBuffer(samples, rate, token, gain = 1) {
   });
 }
 
+const cache = new Map();
+function cachedGen(model, text, voice, rate) {
+  const speed = Math.min(1.6, Math.max(0.6, rate));
+  const key = `${voice}|${speed}|${text}`;
+  if (cache.has(key)) return cache.get(key);
+  const p = model.generate(text, { voice, speed });
+  p.catch(() => cache.delete(key));
+  cache.set(key, p);
+  if (cache.size > 24) cache.delete(cache.keys().next().value);
+  return p;
+}
+
+// Renders a line ahead of time (while the actor is speaking) so it plays instantly later.
+export async function prefetchNeural(text, voiceURI, { rate = 1 } = {}) {
+  if (!voiceURI?.startsWith(NEURAL_PREFIX)) return;
+  const model = await loadNeural();
+  for (const piece of splitText(text)) await cachedGen(model, piece, voiceURI.slice(NEURAL_PREFIX.length), rate);
+}
+
 // Resolves true when finished, false if cancelled.
 export async function speakNeural(text, voiceURI, { rate = 1, gain = 1 } = {}) {
   const token = ++playToken;
   const model = await loadNeural();
   const voice = voiceURI.slice(NEURAL_PREFIX.length);
   const pieces = splitText(text);
-  const gen = (t) => model.generate(t, { voice, speed: Math.min(1.6, Math.max(0.6, rate)) });
+  const gen = (t) => cachedGen(model, t, voice, rate);
   let next = pieces.length ? gen(pieces[0]) : null;
   for (let i = 0; i < pieces.length; i++) {
     const audio = await next;

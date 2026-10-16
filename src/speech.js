@@ -1,4 +1,4 @@
-import { NEURAL_PREFIX, neuralVoices, assignVoices, speakNeural, cancelNeural } from './neural.js';
+import { NEURAL_PREFIX, neuralVoices, assignVoices, speakNeural, cancelNeural, prefetchNeural } from './neural.js';
 import { getSettings } from './store.js';
 // Speech recognition, speech synthesis, and mic recording helpers (all browser built-ins).
 
@@ -161,6 +161,7 @@ export function autoVoice(name, voices, lang = 'en-US', names = [name]) {
   return { uri: map[name], pitch: 1 };
 }
 
+export const prefetchSpeech = (text, { voiceURI = '', rate = 1 } = {}) => prefetchNeural(text, voiceURI, { rate }).catch(() => {});
 let speakToken = 0;
 
 function chunk(text) {
