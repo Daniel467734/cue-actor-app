@@ -4,7 +4,7 @@ import { getScript, saveScript, sessionsFor, deleteSession, getRecording, getSet
 import { listCharacters } from '../parser.js';
 import { getVoices, autoVoice, rankVoices, voiceLabel, speak, cancelSpeech, sttSupported } from '../speech.js';
 import { STRICTNESS } from '../matcher.js';
-import { lineStats, troubleLineIds, summarize, STATUS } from '../stats.js';
+import { lineStats, dueLineIds, troubleLineIds, summarize, STATUS } from '../stats.js';
 import { toText, toFountain, toPDF } from '../exporters.js';
 import { scriptEditor } from './editor.js';
 
@@ -89,13 +89,14 @@ export async function render(root, { id }) {
       h('option', { value: '' }, 'The beginning'),
       ...script.items.filter((it) => it.type === 'scene' || (it.type === 'dialogue' && it.character === me)).map((it) =>
         h('option', { value: it.id }, it.type === 'scene' ? `Scene: ${it.text.slice(0, 40)}` : `${me}: ${it.text.slice(0, 40)}…`)));
+    const due = me ? dueLineIds(sessions, me, script.items).length : 0;
     const modeSel = h('div', { class: 'seg' },
-      ['full', 'trouble'].map((m) => h('button', {
+      ['full', 'due', 'trouble'].map((m) => h('button', {
         class: `seg-btn${opts.mode === m ? ' on' : ''}`,
-        disabled: m === 'trouble' && !troubles,
-        onclick: () => { opts.mode = m; startSel.disabled = m === 'trouble'; renderBody(); },
-      }, m === 'full' ? 'Full run' : `Trouble lines${troubles ? ` (${troubles})` : ''}`)));
-    startSel.disabled = opts.mode === 'trouble';
+        disabled: (m === 'trouble' && !troubles) || (m === 'due' && !due),
+        onclick: () => { opts.mode = m; startSel.disabled = m !== 'full'; renderBody(); },
+      }, m === 'full' ? 'Full run' : m === 'due' ? `Due for review${due ? ` (${due})` : ''}` : `Trouble lines${troubles ? ` (${troubles})` : ''}`)));
+    startSel.disabled = opts.mode !== 'full';
 
     return h('div', {},
       h('div', { class: 'panel' },
@@ -114,13 +115,14 @@ export async function render(root, { id }) {
         h('small', { class: 'muted' }, { 1: 'Close enough counts. Paraphrases and a missed word or two are fine.', 2: 'Most words must be right. Small slips and misheard words are forgiven.', 3: 'Word for word. Every word counts, no ad-libs.' }[settings.strictness]),
         slider('Auto-prompt after silence (0 = off)', 'promptDelay', 0, 20, 1, (v) => (v ? `${v}s` : 'off')),
         h('label', { class: 'field' }, h('span', {}, 'Your lines on screen'),
-          h('div', { class: 'seg' }, [['show', 'Visible'], ['first', 'First words'], ['hidden', 'Hidden']].map(([k, l]) => h('button', {
+          h('div', { class: 'seg' }, [['show', 'Visible'], ['first', 'First words'], ['hidden', 'Hidden'], ['learn', 'Smart fade']].map(([k, l]) => h('button', {
             class: `seg-btn${settings.hideMode === k ? ' on' : ''}`,
             onclick: () => { settings.hideMode = k; saveSettings({ hideMode: k }); renderBody(); },
           }, l)))),
         slider('Scene partner speed', 'speechRate', 0.6, 1.6, 0.05, (v) => `${v.toFixed(2)}×`),
         toggle('Read stage directions aloud', 'readDirections'),
         toggle('Record my audio', 'record', 'Play it back after the run, stored on this device'),
+        toggle('Self-tape (record video)', 'selftape', 'Camera plus your voice and the scene partner. Save or share it after the run'),
         toggle('Success chime', 'sound')),
       h('div', { class: 'panel' }, h('h3', {}, 'Scene partner voices'),
         voices.length ? null : h('p', { class: 'muted' }, 'This browser has no speech voices installed.'),
@@ -131,7 +133,7 @@ export async function render(root, { id }) {
         h('button', {
           class: 'btn gold big', disabled: !me,
           onclick: () => {
-            sessionStorage.setItem('cue-run', JSON.stringify({ scriptId: id, character: me, mode: opts.mode, startId: opts.mode === 'trouble' ? null : opts.startId, options: { ...settings } }));
+            sessionStorage.setItem('cue-run', JSON.stringify({ scriptId: id, character: me, mode: opts.mode, startId: opts.mode !== 'full' ? null : opts.startId, options: { ...settings } }));
             location.hash = `#/rehearse/${id}`;
           },
         }, `🎬 Rehearse as ${me || '…'}`)));

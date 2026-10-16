@@ -49,3 +49,34 @@ export const STATUS = {
   missed: { icon: '✗', label: 'Missed', cls: 'missed' },
   skipped: { icon: '⏭', label: 'Skipped', cls: 'skipped' },
 };
+
+// Per-line memory state from past sessions: streak of clean runs and when it was last rehearsed.
+export function lineMemory(sessions, character) {
+  const map = new Map();
+  const ordered = [...sessions].filter((s) => !character || s.character === character).sort((a, b) => a.startedAt - b.startedAt);
+  for (const s of ordered) {
+    for (const r of lastResultPerLine(s.results)) {
+      const e = map.get(r.lineId) || { streak: 0, last: 0 };
+      e.streak = r.status === 'ok' ? e.streak + 1 : 0;
+      e.last = s.endedAt || s.startedAt;
+      map.set(r.lineId, e);
+    }
+  }
+  return map;
+}
+
+const DAY = 86400000;
+const INTERVALS = [0, 1, 2, 4, 8, 16];
+
+// Lines never rehearsed, recently failed, or whose review interval has passed.
+export function dueLineIds(sessions, character, items, now = Date.now()) {
+  const mem = lineMemory(sessions, character);
+  return items
+    .filter((it) => it.type === 'dialogue' && it.character === character)
+    .filter((it) => {
+      const m = mem.get(it.id);
+      if (!m) return true;
+      return now - m.last >= INTERVALS[Math.min(m.streak, INTERVALS.length - 1)] * DAY;
+    })
+    .map((it) => it.id);
+}

@@ -1,6 +1,7 @@
 import { h, toast, download, confirmDialog } from '../util.js';
 import { getSettings, saveSettings, exportBackup, importBackup, db } from '../store.js';
-import { loadNeural, neuralReady } from '../neural.js';
+import { maybeTour, canInstall, install, isIOS } from '../tour.js';
+import { loadNeural, neuralReady, gpuAvailable, hqWanted, setHQ } from '../neural.js';
 import { getVoices, rankVoices, voiceLabel, speak, cancelSpeech } from '../speech.js';
 
 export async function render(root) {
@@ -45,11 +46,19 @@ export async function render(root) {
     h('h1', {}, 'Settings'),
     h('div', { class: 'panel' }, h('h3', {}, 'Natural voices'),
       h('p', { class: 'muted' }, 'Lifelike scene partners, with male and female voices picked for each character automatically. Downloads once (~90MB) and then runs on your device, no internet needed. A little slower on older phones.'),
-      nBtn, nStatus),
+      nBtn, nStatus,
+      gpuAvailable() && h('label', { class: 'toggle-row' },
+        h('input', { type: 'checkbox', checked: hqWanted(), onchange: (e) => { setHQ(e.target.checked); toast('Reloading with the new quality setting'); setTimeout(() => location.reload(), 700); } }),
+        ' Studio quality (uses your graphics chip, ~300MB download, best on a laptop or recent phone)')),
     h('div', { class: 'panel' }, h('h3', {}, 'Speech'),
       h('label', { class: 'field' }, h('span', {}, 'Language (listening and default voices)'), lang),
       h('label', { class: 'field' }, h('span', {}, 'Narrator voice (stage directions)'), picker),
       h('button', { class: 'btn small', onclick: () => { cancelSpeech(); speak('Lights up. Whenever you are ready.', { voiceURI: picker.value, rate: s.speechRate }); } }, '▶ Test voice'),),
+    h('div', { class: 'panel' }, h('h3', {}, 'Install & help'),
+      h('p', { class: 'muted' }, isIOS() ? 'To install: tap Share, then "Add to Home Screen". It then works offline like an app.' : 'Install Cue to open it like an app. After the first visit it works with no signal.'),
+      h('div', { class: 'row wrap gap' },
+        canInstall() && h('button', { class: 'btn gold', onclick: install }, 'Install app'),
+        h('button', { class: 'btn', onclick: () => maybeTour(true) }, 'Show the tour'))),
     h('div', { class: 'panel' }, h('h3', {}, 'Backup'),
       h('p', { class: 'muted' }, 'Everything lives only on this device. Save a backup file to move it or keep it safe (audio recordings aren\'t included).'),
       h('div', { class: 'row gap wrap' },

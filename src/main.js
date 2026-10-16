@@ -1,5 +1,6 @@
 import './styles.css';
 import { h } from './util.js';
+import { maybeTour } from './tour.js';
 
 const routes = [
   [/^\/?$/, () => import('./views/library.js'), 'library'],
@@ -55,6 +56,7 @@ async function route() {
 
 addEventListener('hashchange', route);
 route();
+setTimeout(() => maybeTour(), 600);
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));

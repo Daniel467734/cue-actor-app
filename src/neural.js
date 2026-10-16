@@ -1,11 +1,12 @@
 // Optional natural voices: Kokoro-82M running fully in the browser (lazy loaded).
 export const NEURAL_PREFIX = 'kokoro:';
 
+// Only the best-rated Kokoro voices are offered.
 const NAMES = {
-  af_heart: 'Heart', af_bella: 'Bella', af_nicole: 'Nicole', af_sarah: 'Sarah', af_sky: 'Sky', af_nova: 'Nova', af_jessica: 'Jessica',
-  am_adam: 'Adam', am_michael: 'Michael', am_eric: 'Eric', am_liam: 'Liam', am_onyx: 'Onyx', am_puck: 'Puck',
-  bf_emma: 'Emma', bf_isabella: 'Isabella', bf_alice: 'Alice', bf_lily: 'Lily',
-  bm_george: 'George', bm_lewis: 'Lewis', bm_daniel: 'Daniel', bm_fable: 'Fable',
+  af_heart: 'Heart', af_bella: 'Bella', af_nicole: 'Nicole', af_aoede: 'Aoede', af_kore: 'Kore', af_sarah: 'Sarah',
+  am_michael: 'Michael', am_fenrir: 'Fenrir', am_puck: 'Puck',
+  bf_emma: 'Emma', bf_isabella: 'Isabella',
+  bm_george: 'George', bm_fable: 'Fable',
 };
 
 export const neuralVoices = () =>
@@ -23,6 +24,18 @@ let ctx = null;
 let playToken = 0;
 let current = null;
 
+export const gpuAvailable = () => !!navigator.gpu;
+export const hqWanted = () => gpuAvailable() && localStorage.getItem('cue-hq') === '1';
+export const setHQ = (on) => localStorage.setItem('cue-hq', on ? '1' : '0');
+
+const load = (KokoroTTS, opts, onProgress) =>
+  KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
+    ...opts,
+    progress_callback: (p) => {
+      if (p.status === 'progress' && onProgress) onProgress(Math.round(p.progress || 0));
+    },
+  });
+
 export const neuralReady = () => !!tts;
 
 export function loadNeural(onProgress) {
@@ -30,13 +43,8 @@ export function loadNeural(onProgress) {
   if (!loading) {
     loading = import('kokoro-js')
       .then(({ KokoroTTS }) =>
-        KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-          dtype: 'q8',
-          device: 'wasm',
-          progress_callback: (p) => {
-            if (p.status === 'progress' && onProgress) onProgress(Math.round(p.progress || 0));
-          },
-        }))
+        load(KokoroTTS, hqWanted() ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' }, onProgress)
+          .catch(() => load(KokoroTTS, { dtype: 'q8', device: 'wasm' }, onProgress)))
       .then((m) => (tts = m))
       .catch((e) => {
         loading = null;
@@ -60,6 +68,14 @@ function splitText(text) {
   return out;
 }
 
+let tapDest = null;
+// Lets a recorder capture the scene partner's voice along with the actor's mic.
+export function audioTap() {
+  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+  if (!tapDest) tapDest = ctx.createMediaStreamDestination();
+  return { ctx, dest: tapDest };
+}
+
 function playBuffer(samples, rate, token, gain = 1) {
   return new Promise((resolve) => {
     if (token !== playToken) return resolve(false);
@@ -71,7 +87,9 @@ function playBuffer(samples, rate, token, gain = 1) {
     src.buffer = buf;
     const g = ctx.createGain();
     g.gain.value = gain;
-    src.connect(g).connect(ctx.destination);
+    src.connect(g);
+    g.connect(ctx.destination);
+    if (tapDest) g.connect(tapDest);
     current = src;
     src.onended = () => resolve(token === playToken);
     src.start();
@@ -106,8 +124,8 @@ export function cancelNeural() {
   current = null;
 }
 
-const FEMALE = ['af_heart', 'af_bella', 'bf_emma', 'af_nicole', 'af_sarah', 'bf_isabella', 'af_sky', 'bf_lily', 'af_nova', 'af_jessica', 'bf_alice'];
-const MALE = ['am_michael', 'bm_george', 'am_adam', 'bm_lewis', 'am_eric', 'bm_daniel', 'am_liam', 'am_onyx', 'bm_fable', 'am_puck'];
+const FEMALE = ['af_heart', 'af_bella', 'bf_emma', 'af_nicole', 'af_aoede', 'bf_isabella', 'af_kore', 'af_sarah'];
+const MALE = ['am_michael', 'bm_george', 'am_fenrir', 'bm_fable', 'am_puck'];
 const FEM_WORDS = /\b(mrs|ms|miss|mum|mom|mother|mama|woman|girl|lady|queen|princess|duchess|countess|sister|aunt|auntie|nan|nana|grandma|gran|wife|daughter|waitress|actress|she)\b/i;
 const MALE_WORDS = /\b(mr|sir|dad|father|papa|man|boy|lord|king|prince|duke|count|brother|uncle|grandpa|husband|son|waiter|actor|he|officer|detective|doctor|dr|narrator)\b/i;
 const FEM_NAMES = new Set('mara anna emma olivia sophia isabella mia charlotte amelia harper evelyn abigail emily ella elizabeth sofia avery scarlett grace chloe victoria riley aria lily aubrey zoey penelope lillian addison layla natalie camila hannah brooklyn zoe nora leah savannah audrey claire eleanor skylar ellie samantha stella paisley violet mila allison alexa anna hazel aaliyah ariana lucy sarah kate katie kathy jane julia julie lisa laura mary maria nina rose ruth sally susan tina vera wendy alice amy beth cora diane donna edith fiona gina helen irene jenny joan karen kim linda lois lucia margaret martha nancy nell paula rachel rebecca rita sandra sue tracy ursula val vivian willow maggie molly polly daisy ivy iris jess jessica jen jennifer megan nicole kylie lauren holly hayley bella'.split(' '));

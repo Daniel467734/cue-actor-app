@@ -1,3 +1,5 @@
+import { lineMemory, dueLineIds } from '../stats.js';
+import { startSelfTape, selfTapePanel } from '../selftape.js';
 import { deliveryFor } from '../delivery.js';
 import { loadNeural } from '../neural.js';
 import { h, toast, formatDuration } from '../util.js';
@@ -46,6 +48,23 @@ export async function render(root, { id }) {
     });
     queue = script.items.filter((_, k) => keep.has(k));
   }
+  const allSessions = await sessionsFor(script.id);
+  const memory = lineMemory(allSessions, me);
+  if (run.mode === 'due') {
+    const due = new Set(dueLineIds(allSessions, me, script.items));
+    const keep = new Set();
+    script.items.forEach((it, k) => {
+      if (due.has(it.id)) {
+        keep.add(k);
+        for (let b = k - 1; b >= 0 && b >= k - 2; b--) {
+          keep.add(b);
+          if (script.items[b].type === 'dialogue') break;
+        }
+      }
+    });
+    queue = script.items.filter((_, k) => keep.has(k));
+    if (!queue.length) toast('Nothing due. You are all caught up!', 4000);
+  }
   if (!queue.some((q) => q.type === 'dialogue' && q.character === me)) {
     toast('No lines for that character in this selection.');
     location.hash = `#/script/${id}`;
@@ -92,9 +111,9 @@ export async function render(root, { id }) {
     h('div', { class: 'r-bottom' }, levelBar, controls, h('div', { class: 'row center gap' }, pauseBtn, hideBtn)));
   spot.append(h('div', { class: 'beam' }));
 
-  const setHideLabel = () => (hideBtn.textContent = `Lines: ${{ show: 'visible', first: 'first words', hidden: 'hidden' }[S.hideMode]}`);
+  const setHideLabel = () => (hideBtn.textContent = `Lines: ${{ show: 'visible', first: 'first words', hidden: 'hidden', learn: 'smart fade' }[S.hideMode]}`);
   function cycleHide() {
-    S.hideMode = { show: 'first', first: 'hidden', hidden: 'show' }[S.hideMode];
+    S.hideMode = { show: 'first', first: 'hidden', hidden: 'learn', learn: 'show' }[S.hideMode];
     setHideLabel();
     if (turnUI) turnUI.refresh();
   }
@@ -115,6 +134,7 @@ export async function render(root, { id }) {
   const startedAt = Date.now();
   const mic = new MicMonitor();
   let release = () => {};
+  let tape = null;
   let meterRaf;
   let ended = false;
   let current = null; // signal for the current wait
@@ -152,6 +172,12 @@ export async function render(root, { id }) {
     started = true;
     keepAwake().then((r) => { if (destroyed) r(); else release = r; });
     if (sttSupported) listener.start();
+    if (S.selftape) {
+      startSelfTape(stage).then((t) => {
+        if (destroyed) t?.discard();
+        else tape = t;
+      }).catch((e) => toast(e.message || 'Camera unavailable', 4500));
+    }
     mic.start({ record: S.record }).then((ok) => {
       if (!ok || destroyed) return;
       const tick = () => {
@@ -205,8 +231,14 @@ export async function render(root, { id }) {
         const n = Number(s.dataset.n);
         const t = Number(s.dataset.t);
         const hit = matched[t];
-        const visible = finalState || S.hideMode === 'show' || (S.hideMode === 'first' && n < 2) || hit || revealed.has(t);
-        s.classList.toggle('hide', !visible);
+        const lvl = Math.min(4, memory.get(it.id)?.streak || 0);
+        const fade = S.hideMode === 'learn' && ((lvl === 1 && n % 4 === 3) || (lvl === 2 && n % 2 === 1) || (lvl === 3 && n > 0) || lvl >= 4);
+        const visible = finalState || S.hideMode === 'show' || (S.hideMode === 'learn' && !fade) || (S.hideMode === 'first' && n < 2) || hit || revealed.has(t);
+        const word = s.dataset.word || (s.dataset.word = s.textContent);
+        const clue = !visible && S.hideMode === 'learn' && lvl >= 2;
+        s.textContent = clue ? word.replace(/[A-Za-z0-9]/g, (c, k) => (k === word.search(/[A-Za-z0-9]/) ? c : '_')) : word;
+        s.classList.toggle('clue', clue);
+        s.classList.toggle('hide', !visible && !clue);
         s.classList.toggle('hit', !!hit && !finalState);
         s.classList.toggle('miss', !!finalState && !hit && finalState !== 'ok');
         s.classList.toggle('hint', revealed.has(t) && !hit);
@@ -501,6 +533,7 @@ export async function render(root, { id }) {
     cancelAnimationFrame(meterRaf);
     release();
     const blob = await mic.stop();
+    const video = tape ? await tape.stop() : null;
     const session = {
       id: `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
       scriptId: script.id,
@@ -516,10 +549,10 @@ export async function render(root, { id }) {
       await saveSession(session);
       if (session.hasRecording) await saveRecording(session.id, blob);
     }
-    if (!destroyed) showSummary(session, blob);
+    if (!destroyed) showSummary(session, blob, video);
   }
 
-  function showSummary(session, blob) {
+  function showSummary(session, blob, video) {
     const s = summarize(results);
     const rows = lastResultPerLine(results).map((r) => {
       const it = script.items.find((x) => x.id === r.lineId);
@@ -538,6 +571,7 @@ export async function render(root, { id }) {
       h('div', { class: 'stat-grid' },
         stat(`${s.clean}%`, 'clean'), stat(s.ok, 'clean lines'), stat(s.prompted, 'prompted'), stat(s.missed, 'missed'),
         stat(formatDuration(session.endedAt - session.startedAt), 'duration')),
+      video && selfTapePanel(video, script.title, me),
       audio && h('div', { class: 'panel' }, h('h3', {}, 'Your recording'), audio),
       h('div', { class: 'row wrap gap' },
         h('button', { class: 'btn gold', onclick: () => { sessionStorage.setItem('cue-run', JSON.stringify({ ...run })); location.hash = `#/rehearse/${id}?r=${Date.now()}`; } }, '↺ Run it again'),
@@ -555,6 +589,7 @@ export async function render(root, { id }) {
     if (!started) return;
     cancelSpeech();
     current?.resolve('stop');
+    tape?.discard();
     resumeSig?.resolve('stop');
   };
 }

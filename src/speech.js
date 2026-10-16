@@ -152,8 +152,8 @@ export const rankVoices = (voices, lang = 'en-US') =>
     .map((x) => x.v);
 
 export function voiceLabel(v, lang) {
-  const sc = voiceScore(v, lang);
-  return `${sc >= 50 ? '★ ' : ''}${v.name} (${v.lang})`;
+  const id = v.voiceURI.replace(NEURAL_PREFIX, '');
+  return `${v.name.replace(' (natural)', '')} · ${id[1] === 'f' ? 'female' : 'male'} · ${v.lang === 'en-GB' ? 'British' : 'American'}`;
 }
 
 export function autoVoice(name, voices, lang = 'en-US', names = [name]) {

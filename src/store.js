@@ -69,7 +69,8 @@ export async function getRecording(id) {
 const DEFAULTS = {
   strictness: 2,
   promptDelay: 6,
-  hideMode: 'show', // show | first | hidden
+  hideMode: 'show', // show | first | hidden | learn
+  selftape: false,
   speechRate: 1,
   readDirections: false,
   record: true,
