@@ -25,7 +25,10 @@ let playToken = 0;
 let current = null;
 
 export const gpuAvailable = () => !!navigator.gpu;
-export const hqWanted = () => gpuAvailable() && localStorage.getItem('cue-hq') === '1';
+export const hqWanted = () => {
+  const v = localStorage.getItem('cue-hq');
+  return gpuAvailable() && v === '1';
+};
 export const setHQ = (on) => localStorage.setItem('cue-hq', on ? '1' : '0');
 
 let worker = null;
