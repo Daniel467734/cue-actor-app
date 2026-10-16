@@ -5,8 +5,8 @@ env.allowLocalModels = false;
 let asr = null;
 console.log('STTDBG isolated=' + self.crossOriginIsolated + ' gpu=' + !!navigator.gpu + ' cores=' + navigator.hardwareConcurrency);
 
-const load = (opts, id) =>
-  pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
+const load = (opts, id, model = 'onnx-community/whisper-base.en') =>
+  pipeline('automatic-speech-recognition', model, {
     ...opts,
     progress_callback: (p) => {
       if (p.status === 'progress') postMessage({ id, progress: Math.round(p.progress || 0) });
@@ -24,7 +24,7 @@ self.onmessage = async ({ data }) => {
         console.log('STTDBG backend=webgpu');
       } catch (e) {
         console.log('STTDBG webgpu failed: ' + e);
-        asr = await load({ dtype: 'q8', device: 'wasm' }, id);
+        asr = await load({ dtype: 'q8', device: 'wasm' }, id, 'onnx-community/whisper-tiny.en');
         console.log('STTDBG backend=wasm');
       }
       postMessage({ id, done: true });

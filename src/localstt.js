@@ -108,15 +108,15 @@ export class LocalListener {
     if (loud) this.lastVoice = now;
     if (loud && !this.speaking) {
       this.speaking = true;
+      this.base = this.committed;
       this.buf = [...this.ring];
     } else if (this.speaking) {
       this.buf.push(f);
     }
     if (this.speaking) {
       const secs = (this.buf.length * f.length) / this.rate;
-      const quiet = now - this.lastVoice;
-      if (quiet > 350) this.#flush(true);
-      else if (secs >= 2.2) this.#flush(false);
+      if (now - this.lastVoice > 650 || secs > 24) this.#flush(true);
+      else if (now - (this.lastInterim || 0) > 1100) this.#flush(false);
     }
   }
 
@@ -131,24 +131,29 @@ export class LocalListener {
     return this.rate === 16000 ? all : resample(all, this.rate, 16000);
   }
 
-  // Transcribe the audio gathered so far as one short chunk and add it to the line. Chunks run in order.
+  // Transcribe the whole utterance so far (full context = better accuracy). Interim passes show live text; the last one is final.
   #flush(end) {
-    const buf = this.buf;
-    this.buf = end ? [] : this.ring.slice(-3);
     if (end) this.speaking = false;
+    if (this.busy && !end) return;
+    this.lastInterim = Date.now();
+    const buf = this.buf.slice();
+    if (end) this.buf = [];
     if (buf.length < 4) return;
     const epoch = this.epoch;
+    const base = this.base || '';
     this.queue = (this.queue || Promise.resolve()).then(async () => {
       if (epoch !== this.epoch) return;
+      this.busy = true;
       try {
         const audio = this.#audio(buf);
         const r = await call({ type: 'transcribe', audio }, null, [audio.buffer]);
         const text = clean(r.text);
         if (epoch !== this.epoch || !text) return;
-        this.committed = `${this.committed} ${text}`.trim();
+        this.committed = `${base} ${text}`.trim();
         this.onText(this.committed);
         if (end) this.onFinal(text);
       } catch { /* keep listening */ }
+      finally { this.busy = false; }
     });
   }
 
@@ -156,6 +161,7 @@ export class LocalListener {
   resetTurn() {
     this.epoch++;
     this.committed = '';
+    this.base = '';
     this.speaking = false;
     this.buf = [];
     this.lastVoice = 0;

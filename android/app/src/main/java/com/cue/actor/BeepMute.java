@@ -39,6 +39,19 @@ public class BeepMute extends Plugin {
         call.resolve();
     }
 
+    // Camera/mic capture can leave Android in a call-like mode that sends playback to the quiet earpiece.
+    @PluginMethod
+    public void speaker(PluginCall call) {
+        AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        try {
+            am.setMode(AudioManager.MODE_NORMAL);
+            am.setSpeakerphoneOn(true);
+            am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0);
+        } catch (Exception ignored) {
+        }
+        call.resolve();
+    }
+
     @Override
     protected void handleOnDestroy() {
         if (muted) apply(false);

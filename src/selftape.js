@@ -1,5 +1,9 @@
 import { h } from './util.js';
 import { audioTap } from './neural.js';
+import { registerPlugin } from '@capacitor/core';
+
+const BeepMute = registerPlugin('BeepMute');
+const forceSpeaker = () => BeepMute.speaker().catch(() => {});
 
 const pickType = () => ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((t) => window.MediaRecorder?.isTypeSupported(t)) || '';
 
@@ -12,6 +16,7 @@ export async function startSelfTape(parent, micStream = null) {
   const shared = micStream?.getAudioTracks().some((t) => t.readyState === 'live');
   const cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 } }, audio: shared ? false : { echoCancellation: true, noiseSuppression: true } });
   const audioTracks = shared ? micStream.getAudioTracks() : cam.getAudioTracks();
+  forceSpeaker();
   const { ctx, dest } = audioTap();
   if (ctx.state === 'suspended') ctx.resume();
   const micSrc = ctx.createMediaStreamSource(new MediaStream(audioTracks));
@@ -49,6 +54,7 @@ export async function startSelfTape(parent, micStream = null) {
   });
   return {
     partner: (speaking) => {
+      if (speaking) forceSpeaker();
       micGain.gain.value = speaking ? 0 : 1;
       try {
         if (speaking && cut.rec.state === 'recording') cut.rec.pause();
