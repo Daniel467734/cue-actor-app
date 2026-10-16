@@ -92,7 +92,6 @@ export class LocalListener {
     src.connect(this.proc);
     this.proc.connect(mute);
     mute.connect(this.ctx.destination);
-    this.timer = setInterval(() => this.#interim(), 250);
     this.onState('listening');
   }
 
@@ -115,77 +114,50 @@ export class LocalListener {
     }
     if (this.speaking) {
       const secs = (this.buf.length * f.length) / this.rate;
-      if (now - this.lastVoice > 600 || secs > 25) this.#finalize();
+      const quiet = now - this.lastVoice;
+      if (quiet > 350) this.#flush(true);
+      else if (secs >= 2.2) this.#flush(false);
     }
   }
 
-  #audio() {
-    const len = this.buf.reduce((a, b) => a + b.length, 0);
+  #audio(buf) {
+    const len = buf.reduce((a, b) => a + b.length, 0);
     const all = new Float32Array(len);
     let o = 0;
-    for (const b of this.buf) {
+    for (const b of buf) {
       all.set(b, o);
       o += b.length;
     }
     return this.rate === 16000 ? all : resample(all, this.rate, 16000);
   }
 
-  async #transcribe() {
-    const audio = this.#audio();
-    const r = await call({ type: 'transcribe', audio }, null, [audio.buffer]);
-    return clean(r.text);
-  }
-
-  async #interim() {
-    if (!this.active || !this.speaking || this.busy) return;
+  // Transcribe the audio gathered so far as one short chunk and add it to the line. Chunks run in order.
+  #flush(end) {
+    const buf = this.buf;
+    this.buf = end ? [] : this.ring.slice(-3);
+    if (end) this.speaking = false;
+    if (buf.length < 4) return;
     const epoch = this.epoch;
-    this.busy = true;
-    const frames = this.buf.length;
-    try {
-      const text = await this.#transcribe();
-      this.doneFrames = frames;
-      if (epoch === this.epoch && this.speaking) {
-        this.current = text;
-        this.#emit();
-      }
-    } catch { /* keep listening */ }
-    this.busy = false;
-  }
-
-  async #finalize() {
-    const epoch = this.epoch;
-    this.speaking = false;
-    const had = this.buf.length;
-    while (this.busy) await new Promise((r) => setTimeout(r, 40));
-    if (!had || epoch !== this.epoch) return;
-    this.busy = true;
-    try {
-      // Reuse the last live transcript if almost no new audio arrived since it.
-      const fresh = this.current && this.buf.length - (this.doneFrames || 0) <= 4;
-      const text = fresh ? this.current : await this.#transcribe();
-      if (epoch === this.epoch) {
+    this.queue = (this.queue || Promise.resolve()).then(async () => {
+      if (epoch !== this.epoch) return;
+      try {
+        const audio = this.#audio(buf);
+        const r = await call({ type: 'transcribe', audio }, null, [audio.buffer]);
+        const text = clean(r.text);
+        if (epoch !== this.epoch || !text) return;
         this.committed = `${this.committed} ${text}`.trim();
-        this.current = '';
-        this.buf = [];
-        this.#emit();
-        this.onFinal(text);
-      }
-    } catch { /* ignore */ }
-    this.busy = false;
-  }
-
-  #emit() {
-    this.onText(`${this.committed} ${this.current}`.trim());
+        this.onText(this.committed);
+        if (end) this.onFinal(text);
+      } catch { /* keep listening */ }
+    });
   }
 
   // Forget everything heard so far (new turn). The mic stays open.
   resetTurn() {
     this.epoch++;
     this.committed = '';
-    this.current = '';
     this.speaking = false;
     this.buf = [];
-    this.doneFrames = 0;
     this.lastVoice = 0;
   }
 
