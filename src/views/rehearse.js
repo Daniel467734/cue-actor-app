@@ -23,7 +23,7 @@ export async function render(root, { id }) {
   const S = { ...getSettings(), ...run.options };
   const me = run.character;
   const voices = await getVoices();
-  if (getSettings().neural) loadNeural().catch(() => {});
+  loadNeural().catch(() => {});
   const level = S.strictness;
 
   // Build the queue of lines to play.
@@ -54,7 +54,7 @@ export async function render(root, { id }) {
   const voiceFor = (name) => {
     const saved = script.voices?.[name];
     if (saved) return { voiceURI: saved, pitch: 1 };
-    const a = autoVoice(name, voices, S.lang);
+    const a = autoVoice(name, voices, S.lang, [...new Set(script.items.map((i) => i.character).filter(Boolean))]);
     return { voiceURI: a.uri, pitch: a.pitch };
   };
   const narrator = () => {

@@ -23,39 +23,33 @@ export async function render(root) {
   const lang = h('select', {
     class: 'type-sel', 'aria-label': 'Language',
     onchange: (e) => saveSettings({ lang: e.target.value }),
-  }, [['en-US', 'English (US)'], ['en-GB', 'English (UK)'], ['en-AU', 'English (Australia)'], ['en-CA', 'English (Canada)'], ['en-IN', 'English (India)'], ['es-ES', 'Español'], ['fr-FR', 'Français'], ['de-DE', 'Deutsch'], ['it-IT', 'Italiano']]
+  }, [['en-US', 'English (US)'], ['en-GB', 'English (UK)'], ['en-AU', 'English (Australia)'], ['en-CA', 'English (Canada)'], ['en-IN', 'English (India)']]
     .map(([v, l]) => h('option', { value: v, selected: v === s.lang }, l)));
 
-  const nStatus = h('small', { class: 'muted block' }, s.neural ? (neuralReady() ? 'Natural voices are on.' : 'Natural voices on. They load when you rehearse.') : 'Off. Uses the built-in voices.');
-  const nBtn = h('button', { class: 'btn gold' }, s.neural ? 'Turn off natural voices' : 'Enable natural voices (~90MB download)');
+  const nStatus = h('small', { class: 'muted block' }, neuralReady() ? 'Voices are downloaded and ready.' : 'Downloads automatically the first time you rehearse.');
+  const nBtn = h('button', { class: 'btn gold' }, 'Download voices now (~90MB)');
+  nBtn.hidden = neuralReady();
   nBtn.onclick = async () => {
-    if (getSettings().neural) {
-      saveSettings({ neural: false });
-      toast('Natural voices off');
-      return render(root);
-    }
     nBtn.disabled = true;
     try {
       await loadNeural((p) => (nStatus.textContent = `Downloading voices… ${p}%`));
-      saveSettings({ neural: true });
-      toast('Natural voices ready');
-      render(root);
+      nStatus.textContent = 'Voices are downloaded and ready.';
+      nBtn.hidden = true;
     } catch (e) {
       nBtn.disabled = false;
-      nStatus.textContent = 'Couldn\'t download the voices. Check your connection and try again.';
+      nStatus.textContent = 'Couldn\'t download the voices. Check your connection and try again. Until then, your device\'s built-in voice is used.';
     }
   };
 
   root.replaceChildren(h('section', { class: 'page' },
     h('h1', {}, 'Settings'),
-    h('div', { class: 'panel' }, h('h3', {}, 'Natural voices (free, optional)'),
-      h('p', { class: 'muted' }, 'Much more lifelike scene partners. Downloads once (~90MB) and then runs on your device, no internet needed. A little slower on older phones.'),
+    h('div', { class: 'panel' }, h('h3', {}, 'Natural voices'),
+      h('p', { class: 'muted' }, 'Lifelike scene partners, with male and female voices picked for each character automatically. Downloads once (~90MB) and then runs on your device, no internet needed. A little slower on older phones.'),
       nBtn, nStatus),
     h('div', { class: 'panel' }, h('h3', {}, 'Speech'),
       h('label', { class: 'field' }, h('span', {}, 'Language (listening and default voices)'), lang),
       h('label', { class: 'field' }, h('span', {}, 'Narrator voice (stage directions)'), picker),
-      h('button', { class: 'btn small', onclick: () => { cancelSpeech(); speak('Lights up. Whenever you are ready.', { voiceURI: picker.value, rate: s.speechRate }); } }, '▶ Test voice'),
-      h('p', { class: 'muted' }, 'Voices marked ★ are the most natural. On Mac/iPhone, add more under Settings → Accessibility → Spoken Content → Voices (choose Enhanced/Premium). Tip: wear headphones so the scene partner isn\'t picked up by your mic. Speech recognition needs Chrome, Edge or Safari, and an internet connection in most browsers.')),
+      h('button', { class: 'btn small', onclick: () => { cancelSpeech(); speak('Lights up. Whenever you are ready.', { voiceURI: picker.value, rate: s.speechRate }); } }, '▶ Test voice'),),
     h('div', { class: 'panel' }, h('h3', {}, 'Backup'),
       h('p', { class: 'muted' }, 'Everything lives only on this device. Save a backup file to move it or keep it safe (audio recordings aren\'t included).'),
       h('div', { class: 'row gap wrap' },

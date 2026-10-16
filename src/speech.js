@@ -1,4 +1,4 @@
-import { NEURAL_PREFIX, neuralVoices, speakNeural, cancelNeural } from './neural.js';
+import { NEURAL_PREFIX, neuralVoices, assignVoices, speakNeural, cancelNeural } from './neural.js';
 import { getSettings } from './store.js';
 // Speech recognition, speech synthesis, and mic recording helpers (all browser built-ins).
 
@@ -108,8 +108,8 @@ export class Listener {
 
 let voicesCache = [];
 export async function getVoices() {
-  const base = await getBrowserVoices();
-  return getSettings().neural ? [...neuralVoices(), ...base] : base;
+  await getBrowserVoices();
+  return neuralVoices();
 }
 
 function getBrowserVoices() {
@@ -156,15 +156,9 @@ export function voiceLabel(v, lang) {
   return `${sc >= 50 ? '★ ' : ''}${v.name} (${v.lang})`;
 }
 
-// Picks from the best few voices so each character sounds distinct yet natural.
-export function autoVoice(name, voices, lang = 'en-US') {
-  const ranked = rankVoices(voices, lang);
-  const list = ranked.length ? ranked : voices;
-  if (!list.length) return { uri: '', pitch: 1 };
-  const top = list[0] ? voiceScore(list[0], lang) : 0;
-  const best = list.filter((v) => voiceScore(v, lang) >= top - 15).slice(0, 16);
-  const h = hash(name);
-  return { uri: best[h % best.length].voiceURI, pitch: 0.92 + ((h >> 3) % 5) * 0.04 };
+export function autoVoice(name, voices, lang = 'en-US', names = [name]) {
+  const map = assignVoices(names.includes(name) ? names : [...names, name], lang);
+  return { uri: map[name], pitch: 1 };
 }
 
 let speakToken = 0;

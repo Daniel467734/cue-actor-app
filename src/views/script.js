@@ -16,7 +16,7 @@ export async function render(root, { id }) {
   }
   const settings = getSettings();
   const voices = await getVoices();
-  if (getSettings().neural) loadNeural().catch(() => {});
+  loadNeural().catch(() => {});
   let sessions = await sessionsFor(id);
   let tab = sessionStorage.getItem(`cue-tab-${id}`) || 'rehearse';
   const chars = () => listCharacters(script.items);
@@ -41,7 +41,7 @@ export async function render(root, { id }) {
   }
 
   function voiceSelect(name) {
-    const auto = autoVoice(name, voices, settings.lang);
+    const auto = autoVoice(name, voices, settings.lang, chars().map((c) => c.name));
     const current = script.voices?.[name] || auto.uri;
     const sel = h('select', {
       class: 'type-sel',
