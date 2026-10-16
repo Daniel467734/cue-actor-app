@@ -152,7 +152,7 @@ export async function render(root, { id }) {
   let destroyed = false;
   let started = false;
 
-  const useLocal = S.sttEngine === 'local' || (S.sttEngine !== 'browser' && isMobile);
+  const useLocal = S.sttEngine === 'local';
   const listenerOpts = {
     lang: S.lang,
     onText: (t) => acceptInput && onText?.(t, false),
