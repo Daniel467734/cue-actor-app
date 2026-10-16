@@ -180,7 +180,7 @@ export async function render(root, { id }) {
     unlockAudio();
     if (ttsSupported) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
     keepAwake().then((r) => { if (destroyed) r(); else release = r; });
-    if (sttSupported) listener.start();
+    if (sttSupported && !isMobile) listener.start();
     if (S.selftape) {
       startSelfTape(stage).then((t) => {
         if (destroyed) t?.discard();
@@ -305,6 +305,7 @@ export async function render(root, { id }) {
   };
 
   async function partnerTurn(it) {
+    if (isMobile) listener.pause();
     acceptInput = false;
     onText = null;
     transcript.textContent = '';
@@ -348,7 +349,8 @@ export async function render(root, { id }) {
       showCard(it, true);
       transcript.textContent = '';
       setStatus('Your line', 'listening');
-      listener.resetTurn(1500);
+      if (isMobile && sttSupported) listener.resume();
+      listener.resetTurn(isMobile ? 0 : 1500);
       acceptInput = true;
       current = signal();
       current.p.then((a) => handleAction(a));

@@ -66,6 +66,7 @@ export class Listener {
       this.onState('listening');
     };
     r.onend = () => {
+      if (this.rec !== r) return;
       this.running = false;
       this.stash = `${this.stash} ${this.lastText}`.trim();
       this.lastText = '';
