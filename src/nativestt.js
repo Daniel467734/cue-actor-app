@@ -1,7 +1,8 @@
 // Android/iOS app: the phone's own speech recogniser through Capacitor.
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 
+const BeepMute = registerPlugin('BeepMute');
 export const isNative = Capacitor.isNativePlatform();
 
 export class NativeListener {
@@ -30,6 +31,7 @@ export class NativeListener {
       this.onError('Microphone permission was denied. Allow it in the phone settings.');
       return;
     }
+    BeepMute.mute().catch(() => {});
     this.#loop();
   }
 
@@ -70,6 +72,7 @@ export class NativeListener {
     this.epoch++;
     this.resetTurn();
     SpeechRecognition.stop().catch(() => {});
+    BeepMute.unmute().catch(() => {});
   }
 
   resume() {
@@ -77,6 +80,7 @@ export class NativeListener {
     this.wanted = true;
     this.epoch++;
     this.running = false;
+    BeepMute.mute().catch(() => {});
     this.#loop();
   }
 
