@@ -2,6 +2,7 @@ import { lineMemory, dueLineIds } from '../stats.js';
 import { startSelfTape, selfTapePanel } from '../selftape.js';
 import { deliveryFor } from '../delivery.js';
 import { loadNeural, unlockAudio } from '../neural.js';
+import { LocalListener, loadStt } from '../localstt.js';
 import { h, toast, formatDuration } from '../util.js';
 import { getScript, saveSession, saveRecording, sessionsFor, getSettings } from '../store.js';
 import { Listener, MicMonitor, speak, cancelSpeech, getVoices, autoVoice, sttSupported, chime, prefetchSpeech, isMobile, ttsSupported } from '../speech.js';
@@ -151,12 +152,24 @@ export async function render(root, { id }) {
   let destroyed = false;
   let started = false;
 
-  const listener = new Listener({
+  const useLocal = S.sttEngine === 'local' || (S.sttEngine !== 'browser' && isMobile);
+  const listenerOpts = {
     lang: S.lang,
     onText: (t) => acceptInput && onText?.(t, false),
     onFinal: () => {},
     onError: (m) => toast(m, 4500),
-  });
+  };
+  let listener = useLocal
+    ? new LocalListener({
+      ...listenerOpts,
+      onUnavailable: () => {
+        toast('On-device listening couldn\'t load, using the browser\'s instead', 4500);
+        listener = new Listener(listenerOpts);
+        listener.start();
+      },
+    })
+    : new Listener(listenerOpts);
+  const sttP = useLocal ? loadStt().catch(() => {}) : Promise.resolve();
   // Treat a short silence after the last result as the end of an utterance.
   function act(a) {
     current?.resolve(a);
@@ -172,7 +185,7 @@ export async function render(root, { id }) {
   };
   window.addEventListener('keydown', onKey);
 
-  const warm = loadP.then(() => prefetchAhead(0)).catch(() => {});
+  const warm = Promise.all([loadP, sttP]).then(() => prefetchAhead(0)).catch(() => {});
 
   function begin() {
     intro.remove();
@@ -180,7 +193,8 @@ export async function render(root, { id }) {
     unlockAudio();
     if (ttsSupported) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
     keepAwake().then((r) => { if (destroyed) r(); else release = r; });
-    if (sttSupported && !isMobile) listener.start();
+    if (useLocal) listener.start();
+    else if (sttSupported && !isMobile) listener.start();
     if (S.selftape) {
       startSelfTape(stage).then((t) => {
         if (destroyed) t?.discard();
@@ -188,7 +202,7 @@ export async function render(root, { id }) {
       }).catch((e) => toast(e.message || 'Camera unavailable', 4500));
     }
     // Phones can't share the mic between speech recognition and a second stream, so skip the meter/recording there.
-    (isMobile && !S.selftape ? Promise.resolve(false) : mic.start({ record: S.record && !isMobile })).then((ok) => {
+    ((isMobile || useLocal) && !S.selftape ? Promise.resolve(false) : mic.start({ record: S.record && !isMobile })).then((ok) => {
       if (!ok || destroyed) return;
       const tick = () => {
         levelBar.firstChild.style.transform = `scaleX(${acceptInput ? mic.level() : 0})`;
@@ -197,7 +211,7 @@ export async function render(root, { id }) {
       tick();
     });
     setStatus('Warming up the voices…');
-    Promise.race([warm, sleep(15000)]).then(() => { if (!destroyed) loop(); });
+    Promise.race([warm, sleep(45000)]).then(() => { if (!destroyed) loop(); });
   }
 
   /* ---------- rendering ---------- */
@@ -305,7 +319,7 @@ export async function render(root, { id }) {
   };
 
   async function partnerTurn(it) {
-    if (isMobile) listener.pause();
+    if (isMobile || useLocal) listener.pause();
     acceptInput = false;
     onText = null;
     transcript.textContent = '';
@@ -349,8 +363,8 @@ export async function render(root, { id }) {
       showCard(it, true);
       transcript.textContent = '';
       setStatus('Your line', 'listening');
-      if (isMobile && sttSupported) listener.resume();
-      listener.resetTurn(isMobile ? 0 : 1500);
+      if ((isMobile && sttSupported) || useLocal) listener.resume();
+      listener.resetTurn(isMobile || useLocal ? 0 : 1500);
       acceptInput = true;
       current = signal();
       current.p.then((a) => handleAction(a));

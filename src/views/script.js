@@ -2,7 +2,7 @@ import { loadNeural } from '../neural.js';
 import { h, toast, download, slug, confirmDialog, promptDialog, formatDate, formatDuration } from '../util.js';
 import { getScript, saveScript, sessionsFor, deleteSession, getRecording, getSettings, saveSettings } from '../store.js';
 import { listCharacters } from '../parser.js';
-import { getVoices, autoVoice, rankVoices, voiceLabel, speak, cancelSpeech, sttSupported } from '../speech.js';
+import { getVoices, autoVoice, rankVoices, voiceLabel, speak, cancelSpeech, sttSupported, isMobile } from '../speech.js';
 import { STRICTNESS } from '../matcher.js';
 import { lineStats, dueLineIds, troubleLineIds, summarize, STATUS } from '../stats.js';
 import { toText, toFountain, toPDF } from '../exporters.js';
@@ -17,6 +17,7 @@ export async function render(root, { id }) {
   const settings = getSettings();
   const voices = await getVoices();
   loadNeural().catch(() => {});
+  if (isMobile) import('../localstt.js').then((m) => m.loadStt()).catch(() => {});
   let sessions = await sessionsFor(id);
   let tab = sessionStorage.getItem(`cue-tab-${id}`) || 'rehearse';
   const chars = () => listCharacters(script.items);

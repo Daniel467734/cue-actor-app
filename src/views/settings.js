@@ -52,6 +52,10 @@ export async function render(root) {
         ' Studio quality (uses your graphics chip, ~300MB download, best on a laptop or recent phone)')),
     h('div', { class: 'panel' }, h('h3', {}, 'Speech'),
       h('label', { class: 'field' }, h('span', {}, 'Language (listening and default voices)'), lang),
+      h('label', { class: 'field' }, h('span', {}, 'Listening engine'),
+        h('select', { class: 'type-sel', 'aria-label': 'Listening engine', onchange: (e) => saveSettings({ sttEngine: e.target.value }) },
+          [['auto', 'Automatic (on-device on phones)'], ['local', 'On-device (mic stays on, ~40MB download)'], ['browser', 'Browser built-in']]
+            .map(([v, l]) => h('option', { value: v, selected: v === (s.sttEngine || 'auto') }, l)))),
       h('label', { class: 'field' }, h('span', {}, 'Narrator voice (stage directions)'), picker),
       h('button', { class: 'btn small', onclick: () => { cancelSpeech(); speak('Lights up. Whenever you are ready.', { voiceURI: picker.value, rate: s.speechRate }); } }, '▶ Test voice'),),
     h('div', { class: 'panel' }, h('h3', {}, 'Install & help'),
