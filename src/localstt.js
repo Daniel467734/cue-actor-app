@@ -57,7 +57,7 @@ export class LocalListener {
     this.committed = '';
     this.current = '';
     this.epoch = 0;
-    this.floor = 0.006;
+    this.floor = 0.003;
   }
 
   async start() {
@@ -81,6 +81,7 @@ export class LocalListener {
     }
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC();
+    this.ctx.resume?.();
     this.rate = this.ctx.sampleRate;
     const src = this.ctx.createMediaStreamSource(this.stream);
     this.proc = this.ctx.createScriptProcessor(2048, 1, 1);
@@ -102,8 +103,8 @@ export class LocalListener {
     this.ring.push(f);
     if (this.ring.length > 8) this.ring.shift();
     if (!this.active) return;
-    if (!this.speaking) this.floor = this.floor * 0.97 + rms * 0.03;
-    const loud = rms > Math.max(0.015, this.floor * 3);
+    if (!this.speaking) this.floor = Math.min(0.02, this.floor * 0.97 + rms * 0.03);
+    const loud = rms > Math.max(0.006, this.floor * 2.5);
     if (loud) this.lastVoice = now;
     if (loud && !this.speaking) {
       this.speaking = true;
@@ -190,6 +191,21 @@ export class LocalListener {
   resume() {
     this.resetTurn();
     this.active = true;
+    this.#revive();
+  }
+
+  // Phones can suspend the audio context or mute the mic while other audio plays.
+  async #revive() {
+    try {
+      const track = this.stream?.getAudioTracks()[0];
+      if (!this.stream || !track || track.readyState !== 'live') {
+        this.stop();
+        this.active = true;
+        await this.start();
+        return;
+      }
+      if (this.ctx?.state !== 'running') await this.ctx.resume();
+    } catch { /* retry next turn */ }
   }
 
   stop() {
