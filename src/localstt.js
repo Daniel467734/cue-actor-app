@@ -79,6 +79,7 @@ export class LocalListener {
       this.onUnavailable();
       return;
     }
+    if (!this.opened) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC();
     this.ctx.resume?.();

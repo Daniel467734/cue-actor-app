@@ -17,7 +17,7 @@ export async function render(root, { id }) {
   const settings = getSettings();
   const voices = await getVoices();
   loadNeural().catch(() => {});
-  if (isMobile) import('../localstt.js').then((m) => m.loadStt()).catch(() => {});
+  if (isMobile) loadNeural().catch(() => {}).then(() => import('../localstt.js')).then((m) => m.loadStt()).catch(() => {});
   let sessions = await sessionsFor(id);
   let tab = sessionStorage.getItem(`cue-tab-${id}`) || 'rehearse';
   const chars = () => listCharacters(script.items);

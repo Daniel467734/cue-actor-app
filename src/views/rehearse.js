@@ -170,7 +170,8 @@ export async function render(root, { id }) {
     })
     : new Listener(listenerOpts);
   let sttFailed = false;
-  if (useLocal) loadStt().catch(() => { sttFailed = true; });
+  // Load one model at a time; two at once can exhaust a phone's memory.
+  if (useLocal) loadP.then(() => loadStt()).catch(() => { sttFailed = true; });
   // Treat a short silence after the last result as the end of an utterance.
   function act(a) {
     current?.resolve(a);
@@ -213,9 +214,16 @@ export async function render(root, { id }) {
     });
     setStatus('Warming up the voices…');
     Promise.race([warm, sleep(20000)]).then(async () => {
-      while (useLocal && !sttFailed && !sttReady() && !destroyed) {
+      const t0 = Date.now();
+      while (useLocal && !sttFailed && !sttReady() && !destroyed && Date.now() - t0 < 120000) {
         setStatus(`Loading listening model… ${sttPct}% (first time only)`);
         await sleep(500);
+      }
+      if (useLocal && !sttReady() && !destroyed) {
+        toast('Listening model is too slow here, using the browser\'s listening', 4500);
+        listener.stop();
+        listener = new Listener(listenerOpts);
+        listener.start();
       }
       if (!destroyed) loop();
     });
