@@ -24,11 +24,12 @@ function call(msg, onProgress, transfer = []) {
 }
 
 export const sttReady = () => ready;
+export let sttPct = 0;
 
 export function loadStt(onProgress) {
   if (ready) return Promise.resolve();
   if (!loading) {
-    loading = call({ type: 'load' }, onProgress)
+    loading = call({ type: 'load' }, (p) => { sttPct = p; onProgress?.(p); })
       .then(() => { ready = true; })
       .catch((e) => {
         loading = null;

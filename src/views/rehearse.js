@@ -2,7 +2,7 @@ import { lineMemory, dueLineIds } from '../stats.js';
 import { startSelfTape, selfTapePanel } from '../selftape.js';
 import { deliveryFor } from '../delivery.js';
 import { loadNeural, unlockAudio } from '../neural.js';
-import { LocalListener, loadStt } from '../localstt.js';
+import { LocalListener, loadStt, sttReady, sttPct } from '../localstt.js';
 import { h, toast, formatDuration } from '../util.js';
 import { getScript, saveSession, saveRecording, sessionsFor, getSettings } from '../store.js';
 import { Listener, MicMonitor, speak, cancelSpeech, getVoices, autoVoice, sttSupported, chime, prefetchSpeech, isMobile, ttsSupported } from '../speech.js';
@@ -169,7 +169,8 @@ export async function render(root, { id }) {
       },
     })
     : new Listener(listenerOpts);
-  const sttP = useLocal ? loadStt().catch(() => {}) : Promise.resolve();
+  let sttFailed = false;
+  if (useLocal) loadStt().catch(() => { sttFailed = true; });
   // Treat a short silence after the last result as the end of an utterance.
   function act(a) {
     current?.resolve(a);
@@ -185,7 +186,7 @@ export async function render(root, { id }) {
   };
   window.addEventListener('keydown', onKey);
 
-  const warm = Promise.all([loadP, sttP]).then(() => prefetchAhead(0)).catch(() => {});
+  const warm = loadP.then(() => prefetchAhead(0)).catch(() => {});
 
   function begin() {
     intro.remove();
@@ -211,7 +212,13 @@ export async function render(root, { id }) {
       tick();
     });
     setStatus('Warming up the voices…');
-    Promise.race([warm, sleep(45000)]).then(() => { if (!destroyed) loop(); });
+    Promise.race([warm, sleep(20000)]).then(async () => {
+      while (useLocal && !sttFailed && !sttReady() && !destroyed) {
+        setStatus(`Loading listening model… ${sttPct}% (first time only)`);
+        await sleep(500);
+      }
+      if (!destroyed) loop();
+    });
   }
 
   /* ---------- rendering ---------- */
