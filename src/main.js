@@ -42,6 +42,10 @@ async function route() {
       window.scrollTo(0, 0);
     } catch (e) {
       console.error(e);
+      if (/dynamically imported module|Importing a module script failed/i.test(e.message) && !sessionStorage.getItem('cue-reloaded')) {
+        sessionStorage.setItem('cue-reloaded', '1');
+        return location.reload();
+      }
       view.replaceChildren(h('section', { class: 'page' }, h('h2', {}, 'Something went wrong'), h('p', { class: 'muted' }, e.message), h('a', { class: 'btn', href: '#/' }, 'Back to library')));
     }
     return;
