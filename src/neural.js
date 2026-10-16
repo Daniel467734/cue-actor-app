@@ -92,7 +92,8 @@ function splitText(text) {
   const out = [];
   let cur = '';
   for (const p of parts) {
-    if (cur && (cur + p).length > 140) {
+    // First sentence stands alone so playback can start as soon as it is ready.
+    if (cur && (!out.length || (cur + p).length > 140)) {
       out.push(cur.trim());
       cur = p;
     } else cur += p;
