@@ -153,15 +153,15 @@ export async function render(root, { id }) {
   let destroyed = false;
   let started = false;
 
-  const useModel = !isNative && S.sttEngine === 'local';
-  const useLocal = isNative || useModel;
+  const useModel = S.sttEngine === 'local' || (isNative && S.sttEngine !== 'native');
+  const useLocal = useModel || (isNative && S.sttEngine === 'native');
   const listenerOpts = {
     lang: S.lang,
     onText: (t) => acceptInput && onText?.(t, false),
     onFinal: () => {},
     onError: (m) => toast(m, 4500),
   };
-  let listener = isNative
+  let listener = !useModel && isNative
     ? new NativeListener(listenerOpts)
     : useModel
     ? new LocalListener({

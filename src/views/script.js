@@ -17,7 +17,7 @@ export async function render(root, { id }) {
   const settings = getSettings();
   const voices = await getVoices();
   loadNeural().catch(() => {});
-  if (getSettings().sttEngine === 'local') loadNeural().catch(() => {}).then(() => import('../localstt.js')).then((m) => m.loadStt()).catch(() => {});
+  if (getSettings().sttEngine === 'local' || (window.Capacitor?.isNativePlatform?.() && getSettings().sttEngine !== 'native')) loadNeural().catch(() => {}).then(() => import('../localstt.js')).then((m) => m.loadStt()).catch(() => {});
   let sessions = await sessionsFor(id);
   let tab = sessionStorage.getItem(`cue-tab-${id}`) || 'rehearse';
   const chars = () => listCharacters(script.items);

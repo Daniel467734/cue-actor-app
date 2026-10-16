@@ -54,7 +54,7 @@ export async function render(root) {
       h('label', { class: 'field' }, h('span', {}, 'Language (listening and default voices)'), lang),
       h('label', { class: 'field' }, h('span', {}, 'Listening engine'),
         h('select', { class: 'type-sel', 'aria-label': 'Listening engine', onchange: (e) => saveSettings({ sttEngine: e.target.value }) },
-          [['auto', 'Automatic (browser built-in)'], ['local', 'On-device (mic stays on, ~40MB download)'], ['browser', 'Browser built-in']]
+          [['auto', 'Automatic (on-device in the app, browser otherwise)'], ['local', 'On-device (mic stays on, ~40MB download)'], ['browser', 'Browser built-in'], ['native', 'Phone recogniser (app only, may beep)']]
             .map(([v, l]) => h('option', { value: v, selected: v === (s.sttEngine || 'auto') }, l)))),
       h('label', { class: 'field' }, h('span', {}, 'Narrator voice (stage directions)'), picker),
       h('button', { class: 'btn small', onclick: () => { cancelSpeech(); speak('Lights up. Whenever you are ready.', { voiceURI: picker.value, rate: s.speechRate }); } }, '▶ Test voice'),),
