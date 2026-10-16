@@ -5,7 +5,7 @@ env.allowLocalModels = false;
 let asr = null;
 
 const load = (opts, id) =>
-  pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
+  pipeline('automatic-speech-recognition', 'onnx-community/whisper-base.en', {
     ...opts,
     progress_callback: (p) => {
       if (p.status === 'progress') postMessage({ id, progress: Math.round(p.progress || 0) });
