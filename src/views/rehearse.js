@@ -345,7 +345,7 @@ export async function render(root, { id }) {
       showCard(it, true);
       transcript.textContent = '';
       setStatus('Your line', 'listening');
-      listener.resetTurn();
+      listener.resetTurn(1500);
       acceptInput = true;
       current = signal();
       current.p.then((a) => handleAction(a));

@@ -33,6 +33,10 @@ export class Listener {
     r.maxAlternatives = 1;
     r.onresult = (e) => {
       this.len = e.results.length;
+      this.seen = this.seen || [];
+      this.texts = [];
+      for (let i = 0; i < e.results.length; i++) this.texts[i] = e.results[i][0].transcript;
+      for (let i = e.resultIndex; i < e.results.length; i++) if (!this.seen[i]) this.seen[i] = Date.now();
       let text = '';
       for (let i = this.base; i < e.results.length; i++) text += `${e.results[i][0].transcript} `;
       this.lastText = text.trim();
@@ -51,10 +55,11 @@ export class Listener {
       this.lastText = '';
       this.base = 0;
       this.len = 0;
+      this.seen = [];
       this.onState('idle');
       const quick = Date.now() - (this.startedAt || 0) < 1500;
       this.fails = quick ? (this.fails || 0) + 1 : 0;
-      if (this.wanted) setTimeout(() => this.#begin(), Math.min(2500, 150 + this.fails * 400));
+      if (this.wanted) setTimeout(() => this.#begin(), Math.min(2500, 40 + this.fails * 400));
     };
     r.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
@@ -77,10 +82,14 @@ export class Listener {
   }
 
   // Ignore everything heard so far (new turn).
-  resetTurn() {
+  // preroll: keep words that began in the last few ms (the actor often starts the instant the partner stops).
+  resetTurn(preroll = 0) {
     this.base = this.len;
+    const cutoff = Date.now() - preroll;
+    while (preroll && this.base > 0 && (this.seen?.[this.base - 1] || 0) >= cutoff) this.base--;
     this.stash = '';
-    this.lastText = '';
+    this.lastText = this.base < this.len ? (this.texts || []).slice(this.base).join(' ').trim() : '';
+    if (this.lastText) setTimeout(() => this.onText(this.lastText), 0);
   }
 
   pause() {
