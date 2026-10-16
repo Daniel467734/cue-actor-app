@@ -1,0 +1,1 @@
+async function e(){let e=null;try{e=await navigator.wakeLock?.request(`screen`)}catch{}return()=>e?.release().catch(()=>{})}export{e as t};
