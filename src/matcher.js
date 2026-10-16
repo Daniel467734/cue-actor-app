@@ -47,9 +47,13 @@ function sound(w) {
     .replace(/[aeiouy]+/g, 'a').replace(/(.)\1+/g, '$1').replace(/[hw]/g, '');
 }
 
+// Whisper writes the same grunt many ways ("Oh", "Uh", "Ah", "Ooh"), so these count as one sound.
+const GRUNT = new Set(['oh', 'o', 'ow', 'ooh', 'uh', 'ah', 'aw', 'huh', 'eh', 'er', 'um', 'hm', 'hmm', 'mm', 'mmm', 'ha', 'hah', 'whoa', 'wow']);
+
 export function wordEq(a, b, level = 2) {
   if (a === b) return true;
   if (level >= 3) return false;
+  if (GRUNT.has(a) && GRUNT.has(b)) return true;
   const len = Math.min(a.length, b.length);
   if (len < 3) return false;
   if (sound(a) === sound(b)) return true;
