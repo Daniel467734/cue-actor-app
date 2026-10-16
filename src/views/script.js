@@ -22,7 +22,7 @@ export async function render(root, { id }) {
   const chars = () => listCharacters(script.items);
   let me = sessionStorage.getItem(`cue-char-${id}`) || chars()[0]?.name;
   if (!chars().some((c) => c.name === me)) me = chars()[0]?.name;
-  const opts = { mode: 'full', startId: null };
+  const opts = { mode: 'full', startId: null, sceneOnly: true };
 
   const body = h('div', { class: 'tab-body' });
   const tabsEl = h('div', { class: 'tabs' });
@@ -86,7 +86,7 @@ export async function render(root, { id }) {
     const cs = chars();
     const troubles = me ? troubleLineIds(sessions, me).length : 0;
     const startSel = h('select', { class: 'input', 'aria-label': 'Start from', onchange: (e) => (opts.startId = e.target.value || null) },
-      h('option', { value: '' }, 'The beginning'),
+      h('option', { value: '' }, 'The beginning (whole script)'),
       ...script.items.filter((it) => it.type === 'scene' || (it.type === 'dialogue' && it.character === me)).map((it) =>
         h('option', { value: it.id }, it.type === 'scene' ? `Scene: ${it.text.slice(0, 40)}` : `${me}: ${it.text.slice(0, 40)}…`)));
     const due = me ? dueLineIds(sessions, me, script.items).length : 0;
@@ -105,7 +105,7 @@ export async function render(root, { id }) {
           class: `chip${c.name === me ? ' on' : ''}`,
           onclick: () => { me = c.name; sessionStorage.setItem(`cue-char-${id}`, me); renderBody(); },
         }, `${c.name} `, h('small', {}, `${c.lines} lines`))))),
-      h('div', { class: 'panel' }, h('h3', {}, 'Session'), modeSel, h('label', { class: 'field' }, h('span', {}, 'Start from'), startSel)),
+      h('div', { class: 'panel' }, h('h3', {}, 'Session'), modeSel, h('label', { class: 'field' }, h('span', {}, 'Scene / start from'), startSel), h('label', { class: 'switch-row' }, h('div', {}, h('div', {}, 'Stop at the end of that scene'), h('small', { class: 'muted' }, 'Practise one scene at a time')), h('input', { type: 'checkbox', checked: opts.sceneOnly, onchange: (e) => (opts.sceneOnly = e.target.checked) }))),
       h('div', { class: 'panel' },
         h('h3', {}, 'How you want to be judged'),
         h('div', { class: 'seg' }, [1, 2, 3].map((n) => h('button', {
@@ -133,7 +133,7 @@ export async function render(root, { id }) {
         h('button', {
           class: 'btn gold big', disabled: !me,
           onclick: () => {
-            sessionStorage.setItem('cue-run', JSON.stringify({ scriptId: id, character: me, mode: opts.mode, startId: opts.mode !== 'full' ? null : opts.startId, options: { ...settings } }));
+            sessionStorage.setItem('cue-run', JSON.stringify({ scriptId: id, character: me, mode: opts.mode, sceneOnly: opts.sceneOnly, startId: opts.mode !== 'full' ? null : opts.startId, options: { ...settings } }));
             location.hash = `#/rehearse/${id}`;
           },
         }, `🎬 Rehearse as ${me || '…'}`)));

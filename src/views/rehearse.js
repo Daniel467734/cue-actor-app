@@ -33,6 +33,10 @@ export async function render(root, { id }) {
   let startIdx = Math.max(0, script.items.findIndex((i) => i.id === run.startId));
   if (run.startId == null) startIdx = 0;
   let queue = script.items.slice(startIdx);
+  if (run.sceneOnly && run.startId != null && run.mode === 'full') {
+    const end = queue.findIndex((q, k) => k > 0 && q.type === 'scene');
+    if (end > 0) queue = queue.slice(0, end);
+  }
   if (run.mode === 'trouble') {
     const sessions = await sessionsFor(script.id);
     const bad = new Set(troubleLineIds(sessions, me));
@@ -306,12 +310,16 @@ export async function render(root, { id }) {
       r = await raceSig(sleep(1100), sig);
     } else if (it.type === 'direction') {
       setStatus('Stage direction');
-      r = S.readDirections ? await raceSig(say(it.text, narrator()), sig) : await raceSig(sleep(Math.min(2800, 700 + it.text.length * 28)), sig);
+      r = S.readDirections ? await (async () => { tape?.partner(true); const x = await raceSig(say(it.text, narrator()), sig); tape?.partner(false); return x; })() : await raceSig(sleep(Math.min(2800, 700 + it.text.length * 28)), sig);
     } else {
       setStatus(`${it.character} is speaking…`, 'speaking');
       const d = deliveryFor(script.items, script.items.indexOf(it));
       if (d.pause) r = await raceSig(sleep(d.pause), sig);
-      if (r === 'done') r = await raceSig(speak(d.text, { ...voiceFor(it.character), rate: S.speechRate * d.rate, gain: d.gain, expressive: S.expressive }), sig);
+      if (r === 'done') {
+        tape?.partner(true);
+        r = await raceSig(speak(d.text, { ...voiceFor(it.character), rate: S.speechRate * d.rate, gain: d.gain, expressive: S.expressive }), sig);
+        tape?.partner(false);
+      }
       if (r === 'done') r = await raceSig(sleep(S.cueGap), sig);
     }
     cancelSpeech();
@@ -533,7 +541,7 @@ export async function render(root, { id }) {
     cancelAnimationFrame(meterRaf);
     release();
     const blob = await mic.stop();
-    const video = tape ? await tape.stop() : null;
+    const video = tape ? await tape.stop() : null; // { full, cut }
     const session = {
       id: `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
       scriptId: script.id,
@@ -571,7 +579,7 @@ export async function render(root, { id }) {
       h('div', { class: 'stat-grid' },
         stat(`${s.clean}%`, 'clean'), stat(s.ok, 'clean lines'), stat(s.prompted, 'prompted'), stat(s.missed, 'missed'),
         stat(formatDuration(session.endedAt - session.startedAt), 'duration')),
-      video && selfTapePanel(video, script.title, me),
+      video?.full && selfTapePanel(video, script.title, me),
       audio && h('div', { class: 'panel' }, h('h3', {}, 'Your recording'), audio),
       h('div', { class: 'row wrap gap' },
         h('button', { class: 'btn gold', onclick: () => { sessionStorage.setItem('cue-run', JSON.stringify({ ...run })); location.hash = `#/rehearse/${id}?r=${Date.now()}`; } }, '↺ Run it again'),
