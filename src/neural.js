@@ -60,7 +60,7 @@ function splitText(text) {
   return out;
 }
 
-function playBuffer(samples, rate, token) {
+function playBuffer(samples, rate, token, gain = 1) {
   return new Promise((resolve) => {
     if (token !== playToken) return resolve(false);
     ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
@@ -69,7 +69,9 @@ function playBuffer(samples, rate, token) {
     buf.copyToChannel(samples, 0);
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(ctx.destination);
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g).connect(ctx.destination);
     current = src;
     src.onended = () => resolve(token === playToken);
     src.start();
@@ -77,7 +79,7 @@ function playBuffer(samples, rate, token) {
 }
 
 // Resolves true when finished, false if cancelled.
-export async function speakNeural(text, voiceURI, { rate = 1, pitchless = true } = {}) {
+export async function speakNeural(text, voiceURI, { rate = 1, gain = 1 } = {}) {
   const token = ++playToken;
   const model = await loadNeural();
   const voice = voiceURI.slice(NEURAL_PREFIX.length);
@@ -88,7 +90,7 @@ export async function speakNeural(text, voiceURI, { rate = 1, pitchless = true }
     const audio = await next;
     if (token !== playToken) return false;
     next = i + 1 < pieces.length ? gen(pieces[i + 1]) : null;
-    const ok = await playBuffer(audio.audio, audio.sampling_rate, token);
+    const ok = await playBuffer(audio.audio, audio.sampling_rate, token, gain);
     if (!ok) return false;
   }
   return true;

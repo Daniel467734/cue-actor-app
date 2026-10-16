@@ -1,3 +1,4 @@
+import { deliveryFor } from '../delivery.js';
 import { loadNeural } from '../neural.js';
 import { h, toast, formatDuration } from '../util.js';
 import { getScript, saveSession, saveRecording, sessionsFor, getSettings } from '../store.js';
@@ -276,7 +277,9 @@ export async function render(root, { id }) {
       r = S.readDirections ? await raceSig(say(it.text, narrator()), sig) : await raceSig(sleep(Math.min(2800, 700 + it.text.length * 28)), sig);
     } else {
       setStatus(`${it.character} is speaking…`, 'speaking');
-      r = await raceSig(say(it.text, voiceFor(it.character)), sig);
+      const d = deliveryFor(script.items, script.items.indexOf(it));
+      if (d.pause) r = await raceSig(sleep(d.pause), sig);
+      if (r === 'done') r = await raceSig(speak(d.text, { ...voiceFor(it.character), rate: S.speechRate * d.rate, gain: d.gain, expressive: S.expressive }), sig);
       if (r === 'done') r = await raceSig(sleep(S.cueGap), sig);
     }
     cancelSpeech();

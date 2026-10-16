@@ -1,3 +1,4 @@
+import { TONES } from '../delivery.js';
 import { h } from '../util.js';
 import { uid, cleanName, listCharacters } from '../parser.js';
 
@@ -56,8 +57,12 @@ export function scriptEditor(script, onChange = () => {}) {
         },
       });
     }
+    const tone = item.type === 'dialogue' ? h('select', {
+      class: 'type-sel', 'aria-label': 'Delivery', title: 'How the scene partner delivers this line',
+      onchange: (e) => { item.tone = e.target.value; changed(); },
+    }, Object.entries(TONES).map(([k, t]) => h('option', { value: k, selected: (item.tone || '') === k }, k ? `🎭 ${t.label}` : '🎭 Auto'))) : null;
     return h('div', { class: `line-row ${item.type}${item.parenthetical ? ' paren' : ''}`, dataset: { id: item.id } },
-      h('div', { class: 'line-meta' }, typeSel, who), text, del);
+      h('div', { class: 'line-meta' }, typeSel, who, tone), text, del);
   }
 
   function render() {

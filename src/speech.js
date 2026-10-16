@@ -178,12 +178,12 @@ function chunk(text) {
 }
 
 // Resolves true when finished, false if cancelled.
-export function speak(text, { voiceURI = '', rate = 1, pitch = 1, expressive = true } = {}) {
+export function speak(text, { voiceURI = '', rate = 1, pitch = 1, expressive = true, gain = 1 } = {}) {
   if (!text.trim()) return Promise.resolve(true);
   if (voiceURI.startsWith(NEURAL_PREFIX)) {
     speakToken++;
     if (ttsSupported) speechSynthesis.cancel();
-    return speakNeural(text, voiceURI, { rate }).catch(() => {
+    return speakNeural(text, voiceURI, { rate, gain }).catch(() => {
       const fb = voicesCache.find((v) => v.lang.toLowerCase().startsWith('en'));
       return speak(text, { voiceURI: fb?.voiceURI || '', rate, pitch, expressive });
     });
