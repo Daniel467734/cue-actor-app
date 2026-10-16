@@ -1,3 +1,4 @@
+import { loadNeural } from '../neural.js';
 import { h, toast, formatDuration } from '../util.js';
 import { getScript, saveSession, saveRecording, sessionsFor, getSettings } from '../store.js';
 import { Listener, MicMonitor, speak, cancelSpeech, getVoices, autoVoice, sttSupported, chime } from '../speech.js';
@@ -22,6 +23,7 @@ export async function render(root, { id }) {
   const S = { ...getSettings(), ...run.options };
   const me = run.character;
   const voices = await getVoices();
+  if (getSettings().neural) loadNeural().catch(() => {});
   const level = S.strictness;
 
   // Build the queue of lines to play.

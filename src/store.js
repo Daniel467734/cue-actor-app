@@ -67,6 +67,7 @@ export async function getRecording(id) {
 }
 
 const DEFAULTS = {
+  neural: false,
   strictness: 2,
   promptDelay: 6,
   hideMode: 'show', // show | first | hidden

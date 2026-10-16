@@ -1,3 +1,5 @@
+import { NEURAL_PREFIX, neuralVoices, speakNeural, cancelNeural } from './neural.js';
+import { getSettings } from './store.js';
 // Speech recognition, speech synthesis, and mic recording helpers (all browser built-ins).
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -105,7 +107,12 @@ export class Listener {
 /* ---------------- Text to speech ---------------- */
 
 let voicesCache = [];
-export function getVoices() {
+export async function getVoices() {
+  const base = await getBrowserVoices();
+  return getSettings().neural ? [...neuralVoices(), ...base] : base;
+}
+
+function getBrowserVoices() {
   return new Promise((resolve) => {
     if (!ttsSupported) return resolve([]);
     const load = () => {
@@ -155,7 +162,7 @@ export function autoVoice(name, voices, lang = 'en-US') {
   const list = ranked.length ? ranked : voices;
   if (!list.length) return { uri: '', pitch: 1 };
   const top = list[0] ? voiceScore(list[0], lang) : 0;
-  const best = list.filter((v) => voiceScore(v, lang) >= top - 15).slice(0, 6);
+  const best = list.filter((v) => voiceScore(v, lang) >= top - 15).slice(0, 16);
   const h = hash(name);
   return { uri: best[h % best.length].voiceURI, pitch: 0.92 + ((h >> 3) % 5) * 0.04 };
 }
@@ -178,7 +185,17 @@ function chunk(text) {
 
 // Resolves true when finished, false if cancelled.
 export function speak(text, { voiceURI = '', rate = 1, pitch = 1, expressive = true } = {}) {
-  if (!ttsSupported || !text.trim()) return Promise.resolve(true);
+  if (!text.trim()) return Promise.resolve(true);
+  if (voiceURI.startsWith(NEURAL_PREFIX)) {
+    speakToken++;
+    if (ttsSupported) speechSynthesis.cancel();
+    return speakNeural(text, voiceURI, { rate }).catch(() => {
+      const fb = voicesCache.find((v) => v.lang.toLowerCase().startsWith('en'));
+      return speak(text, { voiceURI: fb?.voiceURI || '', rate, pitch, expressive });
+    });
+  }
+  if (!ttsSupported) return Promise.resolve(true);
+  cancelNeural();
   const token = ++speakToken;
   speechSynthesis.cancel();
   const voice = voicesCache.find((v) => v.voiceURI === voiceURI);
@@ -215,6 +232,7 @@ export function speak(text, { voiceURI = '', rate = 1, pitch = 1, expressive = t
 
 export function cancelSpeech() {
   speakToken++;
+  cancelNeural();
   if (ttsSupported) speechSynthesis.cancel();
 }
 

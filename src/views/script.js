@@ -1,3 +1,4 @@
+import { loadNeural } from '../neural.js';
 import { h, toast, download, slug, confirmDialog, promptDialog, formatDate, formatDuration } from '../util.js';
 import { getScript, saveScript, sessionsFor, deleteSession, getRecording, getSettings, saveSettings } from '../store.js';
 import { listCharacters } from '../parser.js';
@@ -15,6 +16,7 @@ export async function render(root, { id }) {
   }
   const settings = getSettings();
   const voices = await getVoices();
+  if (getSettings().neural) loadNeural().catch(() => {});
   let sessions = await sessionsFor(id);
   let tab = sessionStorage.getItem(`cue-tab-${id}`) || 'rehearse';
   const chars = () => listCharacters(script.items);

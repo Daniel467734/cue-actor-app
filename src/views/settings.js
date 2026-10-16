@@ -1,5 +1,6 @@
 import { h, toast, download, confirmDialog } from '../util.js';
 import { getSettings, saveSettings, exportBackup, importBackup, db } from '../store.js';
+import { loadNeural, neuralReady } from '../neural.js';
 import { getVoices, rankVoices, voiceLabel, speak, cancelSpeech } from '../speech.js';
 
 export async function render(root) {
@@ -25,8 +26,31 @@ export async function render(root) {
   }, [['en-US', 'English (US)'], ['en-GB', 'English (UK)'], ['en-AU', 'English (Australia)'], ['en-CA', 'English (Canada)'], ['en-IN', 'English (India)'], ['es-ES', 'Español'], ['fr-FR', 'Français'], ['de-DE', 'Deutsch'], ['it-IT', 'Italiano']]
     .map(([v, l]) => h('option', { value: v, selected: v === s.lang }, l)));
 
+  const nStatus = h('small', { class: 'muted block' }, s.neural ? (neuralReady() ? 'Natural voices are on.' : 'Natural voices on. They load when you rehearse.') : 'Off. Uses the built-in voices.');
+  const nBtn = h('button', { class: 'btn gold' }, s.neural ? 'Turn off natural voices' : 'Enable natural voices (~90MB download)');
+  nBtn.onclick = async () => {
+    if (getSettings().neural) {
+      saveSettings({ neural: false });
+      toast('Natural voices off');
+      return render(root);
+    }
+    nBtn.disabled = true;
+    try {
+      await loadNeural((p) => (nStatus.textContent = `Downloading voices… ${p}%`));
+      saveSettings({ neural: true });
+      toast('Natural voices ready');
+      render(root);
+    } catch (e) {
+      nBtn.disabled = false;
+      nStatus.textContent = 'Couldn\'t download the voices. Check your connection and try again.';
+    }
+  };
+
   root.replaceChildren(h('section', { class: 'page' },
     h('h1', {}, 'Settings'),
+    h('div', { class: 'panel' }, h('h3', {}, 'Natural voices (free, optional)'),
+      h('p', { class: 'muted' }, 'Much more lifelike scene partners. Downloads once (~90MB) and then runs on your device, no internet needed. A little slower on older phones.'),
+      nBtn, nStatus),
     h('div', { class: 'panel' }, h('h3', {}, 'Speech'),
       h('label', { class: 'field' }, h('span', {}, 'Language (listening and default voices)'), lang),
       h('label', { class: 'field' }, h('span', {}, 'Narrator voice (stage directions)'), picker),

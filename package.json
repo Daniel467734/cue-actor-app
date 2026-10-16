@@ -12,6 +12,7 @@
   "description": "Cue - voice-to-script and line rehearsal for actors",
   "dependencies": {
     "jspdf": "^4.2.1",
+    "kokoro-js": "^1.2.1",
     "mammoth": "^1.13.0",
     "pdfjs-dist": "^6.4.299",
     "vite": "^8.3.4"
