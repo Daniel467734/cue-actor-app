@@ -202,13 +202,13 @@ export async function render(root, { id }) {
     if (useLocal) listener.start();
     else if (sttSupported && !isMobile) listener.start();
     if (S.selftape) {
-      startSelfTape(stage).then((t) => {
+      (async () => { for (let i = 0; i < 20 && useLocal && !listener.stream; i++) await sleep(250); return startSelfTape(stage, useLocal ? listener.stream : null); })().then((t) => {
         if (destroyed) t?.discard();
         else tape = t;
       }).catch((e) => toast(e.message || 'Camera unavailable', 4500));
     }
     // Phones can't share the mic between speech recognition and a second stream, so skip the meter/recording there.
-    ((isMobile || useLocal) && !S.selftape ? Promise.resolve(false) : mic.start({ record: S.record && !isMobile })).then((ok) => {
+    (isMobile || useLocal ? Promise.resolve(false) : mic.start({ record: S.record && !isMobile })).then((ok) => {
       if (!ok || destroyed) return;
       const tick = () => {
         levelBar.firstChild.style.transform = `scaleX(${acceptInput ? mic.level() : 0})`;

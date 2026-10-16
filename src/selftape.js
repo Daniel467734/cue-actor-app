@@ -6,12 +6,15 @@ const pickType = () => ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9,opus', '
 // Records the camera, your mic and the scene partner's voice.
 // full: you + the clean partner voice (your mic is muted while the partner speaks, so the room echo is replaced by the real voice).
 // cut: only you; the recording pauses while the partner speaks.
-export async function startSelfTape(parent) {
+export async function startSelfTape(parent, micStream = null) {
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) throw new Error('Self-tape needs a newer browser');
-  const cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 } }, audio: { echoCancellation: true, noiseSuppression: true } });
+  // Phones can't open several mic streams at once (it silences playback), so reuse the listener's mic when given.
+  const shared = micStream?.getAudioTracks().some((t) => t.readyState === 'live');
+  const cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 } }, audio: shared ? false : { echoCancellation: true, noiseSuppression: true } });
+  const audioTracks = shared ? micStream.getAudioTracks() : cam.getAudioTracks();
   const { ctx, dest } = audioTap();
   if (ctx.state === 'suspended') ctx.resume();
-  const micSrc = ctx.createMediaStreamSource(new MediaStream(cam.getAudioTracks()));
+  const micSrc = ctx.createMediaStreamSource(new MediaStream(audioTracks));
   const micGain = ctx.createGain();
   const cutDest = ctx.createMediaStreamDestination();
   micSrc.connect(micGain);
@@ -36,7 +39,8 @@ export async function startSelfTape(parent) {
     preview.remove();
     micSrc.disconnect();
     micGain.disconnect();
-    cam.getTracks().forEach((t) => t.stop());
+    cam.getVideoTracks().forEach((t) => t.stop());
+    cam.getAudioTracks().forEach((t) => t.stop());
   };
   const finish = (r) => new Promise((resolve) => {
     if (r.rec.state === 'inactive') return resolve(null);
