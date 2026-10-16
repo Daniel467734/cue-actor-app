@@ -92,7 +92,7 @@ export class LocalListener {
     src.connect(this.proc);
     this.proc.connect(mute);
     mute.connect(this.ctx.destination);
-    this.timer = setInterval(() => this.#interim(), 800);
+    this.timer = setInterval(() => this.#interim(), 250);
     this.onState('listening');
   }
 
@@ -115,7 +115,7 @@ export class LocalListener {
     }
     if (this.speaking) {
       const secs = (this.buf.length * f.length) / this.rate;
-      if (now - this.lastVoice > 750 || secs > 25) this.#finalize();
+      if (now - this.lastVoice > 600 || secs > 25) this.#finalize();
     }
   }
 
@@ -140,8 +140,10 @@ export class LocalListener {
     if (!this.active || !this.speaking || this.busy) return;
     const epoch = this.epoch;
     this.busy = true;
+    const frames = this.buf.length;
     try {
       const text = await this.#transcribe();
+      this.doneFrames = frames;
       if (epoch === this.epoch && this.speaking) {
         this.current = text;
         this.#emit();
@@ -158,7 +160,9 @@ export class LocalListener {
     if (!had || epoch !== this.epoch) return;
     this.busy = true;
     try {
-      const text = await this.#transcribe();
+      // Reuse the last live transcript if almost no new audio arrived since it.
+      const fresh = this.current && this.buf.length - (this.doneFrames || 0) <= 4;
+      const text = fresh ? this.current : await this.#transcribe();
       if (epoch === this.epoch) {
         this.committed = `${this.committed} ${text}`.trim();
         this.current = '';
@@ -181,6 +185,7 @@ export class LocalListener {
     this.current = '';
     this.speaking = false;
     this.buf = [];
+    this.doneFrames = 0;
     this.lastVoice = 0;
   }
 
