@@ -1,0 +1,10 @@
+{
+  "name": "Cue",
+  "short_name": "Cue",
+  "description": "Dictate scripts and rehearse lines with an AI scene partner.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0b0907",
+  "theme_color": "#0b0907",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
