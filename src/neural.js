@@ -28,24 +28,40 @@ export const gpuAvailable = () => !!navigator.gpu;
 export const hqWanted = () => gpuAvailable() && localStorage.getItem('cue-hq') === '1';
 export const setHQ = (on) => localStorage.setItem('cue-hq', on ? '1' : '0');
 
-const load = (KokoroTTS, opts, onProgress) =>
-  KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-    ...opts,
-    progress_callback: (p) => {
-      if (p.status === 'progress' && onProgress) onProgress(Math.round(p.progress || 0));
+let worker = null;
+let seq = 0;
+const pending = new Map();
+
+function call(msg, onProgress) {
+  worker = worker || Object.assign(new Worker(new URL('./tts-worker.js', import.meta.url), { type: 'module' }), {
+    onmessage: ({ data }) => {
+      const p = pending.get(data.id);
+      if (!p) return;
+      if (data.progress != null) return p.onProgress?.(data.progress);
+      pending.delete(data.id);
+      if (data.error) p.reject(new Error(data.error));
+      else p.resolve(data);
     },
   });
+  return new Promise((resolve, reject) => {
+    const id = ++seq;
+    pending.set(id, { resolve, reject, onProgress });
+    worker.postMessage({ ...msg, id });
+  });
+}
+
+const proxy = {
+  generate: (text, { voice, speed }) =>
+    call({ type: 'generate', text, voice, speed }).then((d) => ({ audio: d.audio, sampling_rate: d.sampling_rate })),
+};
 
 export const neuralReady = () => !!tts;
 
 export function loadNeural(onProgress) {
   if (tts) return Promise.resolve(tts);
   if (!loading) {
-    loading = import('kokoro-js')
-      .then(({ KokoroTTS }) =>
-        load(KokoroTTS, hqWanted() ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' }, onProgress)
-          .catch(() => load(KokoroTTS, { dtype: 'q8', device: 'wasm' }, onProgress)))
-      .then((m) => (tts = m))
+    loading = call({ type: 'load', opts: hqWanted() ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' } }, onProgress)
+      .then(() => (tts = proxy))
       .catch((e) => {
         loading = null;
         throw e;
