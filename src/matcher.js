@@ -40,11 +40,19 @@ function lev(a, b, max) {
   return prev[b.length];
 }
 
+// Rough sound key so near-homophones from speech recognition (buses/bosses) count as the same word.
+function sound(w) {
+  return w
+    .replace(/ph/g, 'f').replace(/ck|c(?=[aou])|q/g, 'k').replace(/c/g, 's').replace(/z/g, 's')
+    .replace(/[aeiouy]+/g, 'a').replace(/(.)\1+/g, '$1').replace(/[hw]/g, '');
+}
+
 export function wordEq(a, b, level = 2) {
   if (a === b) return true;
   if (level >= 3) return false;
   const len = Math.min(a.length, b.length);
   if (len < 4) return false;
+  if (sound(a) === sound(b)) return true;
   const max = len >= 7 ? 2 : 1;
   return lev(a, b, max) <= max;
 }
