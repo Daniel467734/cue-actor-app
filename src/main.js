@@ -61,3 +61,11 @@ setTimeout(() => maybeTour(), 600);
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
+
+import('./speech.js').then(({ inAppBrowser }) => {
+  if (!inAppBrowser) return;
+  const bar = document.createElement('div');
+  bar.className = 'inapp-warn';
+  bar.innerHTML = '<b>Open in your real browser.</b> This in-app browser (Messenger/Facebook/Instagram) blocks the microphone and voices. Tap the ⋯ menu and choose "Open in Chrome" or "Open in Safari", then Cue will work properly.';
+  document.body.prepend(bar);
+});

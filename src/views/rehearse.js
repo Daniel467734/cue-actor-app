@@ -1,10 +1,10 @@
 import { lineMemory, dueLineIds } from '../stats.js';
 import { startSelfTape, selfTapePanel } from '../selftape.js';
 import { deliveryFor } from '../delivery.js';
-import { loadNeural } from '../neural.js';
+import { loadNeural, unlockAudio } from '../neural.js';
 import { h, toast, formatDuration } from '../util.js';
 import { getScript, saveSession, saveRecording, sessionsFor, getSettings } from '../store.js';
-import { Listener, MicMonitor, speak, cancelSpeech, getVoices, autoVoice, sttSupported, chime, prefetchSpeech } from '../speech.js';
+import { Listener, MicMonitor, speak, cancelSpeech, getVoices, autoVoice, sttSupported, chime, prefetchSpeech, isMobile, ttsSupported } from '../speech.js';
 import { matchLine, displayWords, hintFrom, detectCommand, tokenize, stripDirections } from '../matcher.js';
 import { troubleLineIds, summarize, lastResultPerLine, STATUS } from '../stats.js';
 import { keepAwake } from '../wake.js';
@@ -174,6 +174,8 @@ export async function render(root, { id }) {
   function begin() {
     intro.remove();
     started = true;
+    unlockAudio();
+    if (ttsSupported) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
     keepAwake().then((r) => { if (destroyed) r(); else release = r; });
     if (sttSupported) listener.start();
     if (S.selftape) {
@@ -182,7 +184,8 @@ export async function render(root, { id }) {
         else tape = t;
       }).catch((e) => toast(e.message || 'Camera unavailable', 4500));
     }
-    mic.start({ record: S.record }).then((ok) => {
+    // Phones can't share the mic between speech recognition and a second stream, so skip the meter/recording there.
+    (isMobile && !S.selftape ? Promise.resolve(false) : mic.start({ record: S.record && !isMobile })).then((ok) => {
       if (!ok || destroyed) return;
       const tick = () => {
         levelBar.firstChild.style.transform = `scaleX(${acceptInput ? mic.level() : 0})`;
@@ -190,7 +193,8 @@ export async function render(root, { id }) {
       };
       tick();
     });
-    loop();
+    setStatus('Warming up the voices…');
+    Promise.race([loadNeural().catch(() => {}), sleep(7000)]).then(() => { if (!destroyed) loop(); });
   }
 
   /* ---------- rendering ---------- */

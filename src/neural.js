@@ -56,14 +56,31 @@ const proxy = {
 };
 
 export const neuralReady = () => !!tts;
+let failed = false;
+export const neuralFailed = () => failed;
+
+// Must be called from a tap: phones only allow audio after a user gesture.
+export function unlockAudio() {
+  try {
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    const b = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = b;
+    src.connect(ctx.destination);
+    src.start();
+  } catch { /* audio unavailable */ }
+}
 
 export function loadNeural(onProgress) {
   if (tts) return Promise.resolve(tts);
+  if (failed) return Promise.reject(new Error('Natural voices unavailable on this device'));
   if (!loading) {
     loading = call({ type: 'load', opts: hqWanted() ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' } }, onProgress)
       .then(() => (tts = proxy))
       .catch((e) => {
         loading = null;
+        failed = true;
         throw e;
       });
   }
@@ -127,7 +144,8 @@ function cachedGen(model, text, voice, rate) {
 // Renders a line ahead of time (while the actor is speaking) so it plays instantly later.
 export async function prefetchNeural(text, voiceURI, { rate = 1 } = {}) {
   if (!voiceURI?.startsWith(NEURAL_PREFIX)) return;
-  const model = await loadNeural();
+  if (!tts) return;
+  const model = tts;
   for (const piece of splitText(text)) await cachedGen(model, piece, voiceURI.slice(NEURAL_PREFIX.length), rate);
 }
 

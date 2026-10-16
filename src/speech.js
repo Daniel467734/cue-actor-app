@@ -1,9 +1,11 @@
-import { NEURAL_PREFIX, neuralVoices, assignVoices, speakNeural, cancelNeural, prefetchNeural } from './neural.js';
+import { NEURAL_PREFIX, neuralVoices, assignVoices, speakNeural, cancelNeural, prefetchNeural, neuralReady } from './neural.js';
 import { getSettings } from './store.js';
 // Speech recognition, speech synthesis, and mic recording helpers (all browser built-ins).
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 export const sttSupported = !!SR;
+export const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+export const inAppBrowser = /FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger|Snapchat|TikTok/i.test(navigator.userAgent);
 export const ttsSupported = 'speechSynthesis' in window;
 
 export class Listener {
@@ -39,7 +41,10 @@ export class Listener {
         if (e.results[i].isFinal && i >= this.base) this.onFinal(e.results[i][0].transcript.trim());
       }
     };
-    r.onstart = () => this.onState('listening');
+    r.onstart = () => {
+      this.startedAt = Date.now();
+      this.onState('listening');
+    };
     r.onend = () => {
       this.running = false;
       this.stash = `${this.stash} ${this.lastText}`.trim();
@@ -47,7 +52,9 @@ export class Listener {
       this.base = 0;
       this.len = 0;
       this.onState('idle');
-      if (this.wanted) setTimeout(() => this.#begin(), 120);
+      const quick = Date.now() - (this.startedAt || 0) < 1500;
+      this.fails = quick ? (this.fails || 0) + 1 : 0;
+      if (this.wanted) setTimeout(() => this.#begin(), Math.min(2500, 150 + this.fails * 400));
     };
     r.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
@@ -181,6 +188,11 @@ function chunk(text) {
 // Resolves true when finished, false if cancelled.
 export function speak(text, { voiceURI = '', rate = 1, pitch = 1, expressive = true, gain = 1 } = {}) {
   if (!text.trim()) return Promise.resolve(true);
+  if (voiceURI.startsWith(NEURAL_PREFIX) && !neuralReady()) {
+    // Voice model still loading (or unavailable): use the phone's own voice for now.
+    const fb = voicesCache.find((v) => v.lang.toLowerCase().startsWith('en'));
+    return speak(text, { voiceURI: fb?.voiceURI || '', rate, pitch, expressive });
+  }
   if (voiceURI.startsWith(NEURAL_PREFIX)) {
     speakToken++;
     if (ttsSupported) speechSynthesis.cancel();
