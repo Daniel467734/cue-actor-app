@@ -3,7 +3,7 @@ import { getSettings } from './store.js';
 // Speech recognition, speech synthesis, and mic recording helpers (all browser built-ins).
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-export const sttSupported = !!SR;
+export const sttSupported = !!SR || !!window.Capacitor?.isNativePlatform?.();
 export const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 export const inAppBrowser = /FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger|Snapchat|TikTok/i.test(navigator.userAgent);
 export const ttsSupported = 'speechSynthesis' in window;

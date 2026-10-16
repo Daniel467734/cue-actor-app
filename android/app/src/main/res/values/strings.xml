@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cue</string>
+    <string name="title_activity_main">Cue</string>
+    <string name="package_name">com.cue.actor</string>
+    <string name="custom_url_scheme">com.cue.actor</string>
+</resources>

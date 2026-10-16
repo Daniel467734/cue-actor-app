@@ -11,6 +11,10 @@
   },
   "description": "Cue - voice-to-script and line rehearsal for actors",
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "jspdf": "^4.2.1",
     "kokoro-js": "^1.2.1",
     "mammoth": "^1.13.0",

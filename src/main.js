@@ -71,7 +71,7 @@ import('./speech.js').then(({ inAppBrowser }) => {
 });
 
 import('./speech.js').then(({ isMobile, inAppBrowser }) => {
-  if (!isMobile || inAppBrowser || sessionStorage.getItem('cue-desktop-note')) return;
+  if (!isMobile || inAppBrowser || window.Capacitor?.isNativePlatform?.() || sessionStorage.getItem('cue-desktop-note')) return;
   const close = () => {
     sessionStorage.setItem('cue-desktop-note', '1');
     ov.remove();

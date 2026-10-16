@@ -2,6 +2,7 @@ import { lineMemory, dueLineIds } from '../stats.js';
 import { startSelfTape, selfTapePanel } from '../selftape.js';
 import { deliveryFor } from '../delivery.js';
 import { loadNeural, unlockAudio } from '../neural.js';
+import { NativeListener, isNative } from '../nativestt.js';
 import { LocalListener, loadStt, sttReady, sttPct } from '../localstt.js';
 import { h, toast, formatDuration } from '../util.js';
 import { getScript, saveSession, saveRecording, sessionsFor, getSettings } from '../store.js';
@@ -152,14 +153,17 @@ export async function render(root, { id }) {
   let destroyed = false;
   let started = false;
 
-  const useLocal = S.sttEngine === 'local';
+  const useModel = !isNative && S.sttEngine === 'local';
+  const useLocal = isNative || useModel;
   const listenerOpts = {
     lang: S.lang,
     onText: (t) => acceptInput && onText?.(t, false),
     onFinal: () => {},
     onError: (m) => toast(m, 4500),
   };
-  let listener = useLocal
+  let listener = isNative
+    ? new NativeListener(listenerOpts)
+    : useModel
     ? new LocalListener({
       ...listenerOpts,
       onUnavailable: () => {
@@ -171,7 +175,7 @@ export async function render(root, { id }) {
     : new Listener(listenerOpts);
   let sttFailed = false;
   // Load one model at a time; two at once can exhaust a phone's memory.
-  if (useLocal) loadP.then(() => loadStt()).catch(() => { sttFailed = true; });
+  if (useModel) loadP.then(() => loadStt()).catch(() => { sttFailed = true; });
   // Treat a short silence after the last result as the end of an utterance.
   function act(a) {
     current?.resolve(a);
@@ -215,11 +219,11 @@ export async function render(root, { id }) {
     setStatus('Warming up the voices…');
     Promise.race([warm, sleep(20000)]).then(async () => {
       const t0 = Date.now();
-      while (useLocal && !sttFailed && !sttReady() && !destroyed && Date.now() - t0 < 120000) {
+      while (useModel && !sttFailed && !sttReady() && !destroyed && Date.now() - t0 < 120000) {
         setStatus(`Loading listening model… ${sttPct}% (first time only)`);
         await sleep(500);
       }
-      if (useLocal && !sttReady() && !destroyed) {
+      if (useModel && !sttReady() && !destroyed) {
         toast('Listening model is too slow here, using the browser\'s listening', 4500);
         listener.stop();
         listener = new Listener(listenerOpts);
