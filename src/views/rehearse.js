@@ -26,7 +26,8 @@ export async function render(root, { id }) {
   const S = { ...getSettings(), ...run.options };
   const me = run.character;
   const voices = await getVoices();
-  loadNeural().catch(() => {});
+  // Load the voice and render the first partner lines while the intro screen is showing.
+  const loadP = loadNeural().catch(() => {});
   const level = S.strictness;
 
   // Build the queue of lines to play.
@@ -171,6 +172,8 @@ export async function render(root, { id }) {
   };
   window.addEventListener('keydown', onKey);
 
+  const warm = loadP.then(() => prefetchAhead(0)).catch(() => {});
+
   function begin() {
     intro.remove();
     started = true;
@@ -194,7 +197,7 @@ export async function render(root, { id }) {
       tick();
     });
     setStatus('Warming up the voices…');
-    Promise.race([loadNeural().catch(() => {}), sleep(7000)]).then(() => { if (!destroyed) loop(); });
+    Promise.race([warm, sleep(15000)]).then(() => { if (!destroyed) loop(); });
   }
 
   /* ---------- rendering ---------- */
@@ -511,7 +514,7 @@ export async function render(root, { id }) {
   // Pre-render the next few partner lines so they start the instant the actor finishes.
   function prefetchAhead(from) {
     let n = 0;
-    for (let k = from; k < queue.length && n < 1; k++) {
+    for (let k = from; k < queue.length && n < 2; k++) {
       const q = queue[k];
       if (q.type !== 'dialogue' || q.character === me) continue;
       const d = deliveryFor(script.items, script.items.indexOf(q));
