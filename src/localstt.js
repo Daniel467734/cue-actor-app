@@ -115,8 +115,8 @@ export class LocalListener {
     }
     if (this.speaking) {
       const secs = (this.buf.length * f.length) / this.rate;
-      if (now - this.lastVoice > 650 || secs > 24) this.#flush(true);
-      else if (now - (this.lastInterim || 0) > 1100) this.#flush(false);
+      if (now - this.lastVoice > 450 || secs > 24) this.#flush(true);
+      else if (now - (this.lastInterim || 0) > 600) this.#flush(false);
     }
   }
 

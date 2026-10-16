@@ -424,7 +424,7 @@ export async function render(root, { id }) {
         card.classList.add(status);
         if (status === 'ok' && S.sound) chime(988, 80);
         setStatus(status === 'ok' ? 'Nailed it' : status === 'prompted' ? 'Got there with a prompt' : status === 'missed' ? 'Missed that one' : 'Skipped', status);
-        await sleep(status === 'ok' ? 450 : 1300);
+        await sleep(status === 'ok' ? 120 : 1300);
         end('next');
       };
 
