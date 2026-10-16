@@ -51,15 +51,16 @@ export function wordEq(a, b, level = 2) {
   if (a === b) return true;
   if (level >= 3) return false;
   const len = Math.min(a.length, b.length);
-  if (len < 4) return false;
+  if (len < 3) return false;
   if (sound(a) === sound(b)) return true;
-  const max = len >= 7 ? 2 : 1;
+  if (len === 3) return a[0] === b[0] && lev(a, b, 1) <= 1;
+  const max = len >= 7 ? 3 : len >= 5 ? 2 : 1;
   return lev(a, b, max) <= max;
 }
 
 export const STRICTNESS = {
   1: { name: 'Relaxed', threshold: 0.6, extraPenalty: 0 },
-  2: { name: 'Normal', threshold: 0.8, extraPenalty: 0.2 },
+  2: { name: 'Normal', threshold: 0.72, extraPenalty: 0.1 },
   3: { name: 'Strict', threshold: 0.97, extraPenalty: 0.5 },
 };
 
@@ -95,7 +96,7 @@ export function matchLine(expected, spoken, level = 2) {
   const hits = dp[n][m];
   const extras = Math.max(0, m - hits);
   const score = Math.max(0, hits / (n + extras * cfg.extraPenalty));
-  const needed = n <= 3 && level >= 2 ? n : Math.ceil(n * cfg.threshold);
+  const needed = n <= 2 && level >= 2 ? n : Math.ceil(n * cfg.threshold);
   const lastHit = matched.lastIndexOf(true);
   return {
     score,
