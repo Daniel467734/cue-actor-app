@@ -8,6 +8,22 @@ export const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
 export const inAppBrowser = /FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger|Snapchat|TikTok/i.test(navigator.userAgent);
 export const ttsSupported = 'speechSynthesis' in window;
 
+// Android Chrome reports each growing partial ("the", "the last", ...) as a separate result, so collapse them.
+export function joinResults(parts) {
+  const out = [];
+  for (const raw of parts) {
+    const t = raw.trim();
+    if (!t) continue;
+    const prev = out[out.length - 1];
+    const a = prev?.toLowerCase();
+    const b = t.toLowerCase();
+    if (prev && b.startsWith(a)) out[out.length - 1] = t;
+    else if (prev && a.startsWith(b)) continue;
+    else out.push(t);
+  }
+  return out.join(' ');
+}
+
 export class Listener {
   constructor({ lang = 'en-US', onText = () => {}, onFinal = () => {}, onState = () => {}, onError = () => {} } = {}) {
     Object.assign(this, { lang, onText, onFinal, onState, onError });
@@ -37,9 +53,9 @@ export class Listener {
       this.texts = [];
       for (let i = 0; i < e.results.length; i++) this.texts[i] = e.results[i][0].transcript;
       for (let i = e.resultIndex; i < e.results.length; i++) if (!this.seen[i]) this.seen[i] = Date.now();
-      let text = '';
-      for (let i = this.base; i < e.results.length; i++) text += `${e.results[i][0].transcript} `;
-      this.lastText = text.trim();
+      const parts = [];
+      for (let i = this.base; i < e.results.length; i++) parts.push(e.results[i][0].transcript);
+      this.lastText = joinResults(parts);
       this.onText(`${this.stash} ${this.lastText}`.trim());
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal && i >= this.base) this.onFinal(e.results[i][0].transcript.trim());
@@ -88,7 +104,7 @@ export class Listener {
     const cutoff = Date.now() - preroll;
     while (preroll && this.base > 0 && (this.seen?.[this.base - 1] || 0) >= cutoff) this.base--;
     this.stash = '';
-    this.lastText = this.base < this.len ? (this.texts || []).slice(this.base).join(' ').trim() : '';
+    this.lastText = this.base < this.len ? joinResults((this.texts || []).slice(this.base)) : '';
     if (this.lastText) setTimeout(() => this.onText(this.lastText), 0);
   }
 
