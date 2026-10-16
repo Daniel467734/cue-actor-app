@@ -93,7 +93,7 @@ function splitText(text) {
   let cur = '';
   for (const p of parts) {
     // First sentence stands alone so playback can start as soon as it is ready.
-    if (cur && (!out.length || (cur + p).length > 140)) {
+    if (cur && cur.length >= (out.length ? 0 : 60) && (!out.length || (cur + p).length > 140)) {
       out.push(cur.trim());
       cur = p;
     } else cur += p;
@@ -157,11 +157,10 @@ export async function speakNeural(text, voiceURI, { rate = 1, gain = 1 } = {}) {
   const voice = voiceURI.slice(NEURAL_PREFIX.length);
   const pieces = splitText(text);
   const gen = (t) => cachedGen(model, t, voice, rate);
-  let next = pieces.length ? gen(pieces[0]) : null;
+  const jobs = pieces.map(gen); // queue every piece now so the model never sits idle while one plays
   for (let i = 0; i < pieces.length; i++) {
-    const audio = await next;
+    const audio = await jobs[i];
     if (token !== playToken) return false;
-    next = i + 1 < pieces.length ? gen(pieces[i + 1]) : null;
     const ok = await playBuffer(audio.audio, audio.sampling_rate, token, gain);
     if (!ok) return false;
   }
