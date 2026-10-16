@@ -142,6 +142,7 @@ export async function render(root, { id }) {
   const mic = new MicMonitor();
   let release = () => {};
   let tape = null;
+  let cancelReady = null;
   let meterRaf;
   let ended = false;
   let current = null; // signal for the current wait
@@ -201,13 +202,6 @@ export async function render(root, { id }) {
     keepAwake().then((r) => { if (destroyed) r(); else release = r; });
     if (useLocal) listener.start();
     else if (sttSupported && !isMobile) listener.start();
-    if (S.selftape) {
-      if (useLocal) listener.onStream = (st) => tape?.setMic(st);
-      (async () => { for (let i = 0; i < 20 && useLocal && !listener.stream; i++) await sleep(250); return startSelfTape(stage, useLocal ? listener.stream : null); })().then((t) => {
-        if (destroyed) t?.discard();
-        else tape = t;
-      }).catch((e) => toast(e.message || 'Camera unavailable', 4500));
-    }
     // Phones can't share the mic between speech recognition and a second stream, so skip the meter/recording there.
     (isMobile || useLocal ? Promise.resolve(false) : mic.start({ record: S.record && !isMobile })).then((ok) => {
       if (!ok || destroyed) return;
@@ -230,6 +224,27 @@ export async function render(root, { id }) {
         listener = new Listener(listenerOpts);
         listener.start();
       }
+    if (S.selftape) {
+      if (useLocal) listener.onStream = (st) => tape?.setMic(st);
+      setStatus('Getting ready…');
+      await new Promise((resolve) => {
+        const ov = h('div', { class: 'overlay' },
+          h('div', { class: 'dialog center' }, h('h2', {}, 'Ready to record?'),
+            h('p', { class: 'muted' }, 'Get in position. Recording starts when you tap.'),
+            h('button', { class: 'btn gold', onclick: () => { ov.remove(); resolve(); } }, "I'm ready")));
+        document.body.append(ov);
+        cancelReady = () => { ov.remove(); resolve(); };
+      });
+      if (destroyed) return;
+      try {
+        for (let i = 0; i < 20 && useLocal && !listener.stream; i++) await sleep(250);
+        const t = await startSelfTape(stage, useLocal ? listener.stream : null);
+        if (destroyed) t?.discard();
+        else tape = t;
+      } catch (e) {
+        toast(e.message || 'Camera unavailable', 4500);
+      }
+    }
       if (!destroyed) loop();
     });
   }
@@ -647,6 +662,7 @@ export async function render(root, { id }) {
 
   return () => {
     destroyed = true;
+    cancelReady?.();
     ended = ended || true;
     window.removeEventListener('keydown', onKey);
     document.querySelectorAll('.overlay').forEach((o) => o.remove());
