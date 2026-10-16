@@ -24,6 +24,17 @@ const KEYWORDS = [
   ['slow', /slow|pause|hesitat|beat|measured|thought/],
 ];
 
+// What the words themselves suggest, for lines with no written direction.
+const SPOKEN = [
+  ['angry', /\b(damn|hell|bloody|shut up|get out|how dare|sick of|fed up|i hate|liar|bastard|idiot|stupid|enough)\b/],
+  ['afraid', /\b(please don'?t|help me|oh god|they'?re coming|i'?m scared|don'?t hurt|what was that|run)\b/],
+  ['sad', /\b(i'?m sorry|miss (you|him|her)|gone|passed away|died|lost (him|her|you)|goodbye|never see|can'?t do this anymore)\b/],
+  ['tender', /\b(i love you|my love|darling|sweetheart|dear|it'?s okay|it'?s alright|i'?m here|thank you so much)\b/],
+  ['excited', /\b(amazing|wonderful|can'?t believe|you did it|we won|yes!|incredible|fantastic|brilliant)\b/],
+  ['urgent', /\b(hurry|now!|right now|quickly|there'?s no time|come on|go go|move)\b/],
+  ['cold', /\b(whatever|i see|is that so|how convenient|fine\.)\b/],
+];
+const toneFromWords = (t) => SPOKEN.find(([, re]) => re.test(t.toLowerCase()))?.[0] || '';
 const toneFromText = (t) => KEYWORDS.find(([, re]) => re.test(t.toLowerCase()))?.[0] || '';
 
 // Returns { text, rate, gain, pause } for the dialogue item at index i.
@@ -41,6 +52,16 @@ export function deliveryFor(items, i) {
     if (caps || /!{2,}/.test(text)) tone = 'angry';
     else if ((text.match(/!/g) || []).length >= 2) tone = 'excited';
   }
+  if (!tone) tone = toneFromWords(text);
+  if (!tone) {
+    // Scene mood: a nearby line with a clear tone colours this one, softened.
+    const near = [items[i - 1], items[i + 1]].filter((x) => x?.type === 'dialogue').map((x) => x.tone || toneFromWords(x.text) || '');
+    const mood = near.find((t) => ['sad', 'afraid', 'angry', 'tender'].includes(t));
+    if (mood === 'sad' || mood === 'tender') tone = 'tender';
+    else if (mood === 'afraid') tone = 'afraid';
+    else if (mood === 'angry' && /[!]$/.test(text)) tone = 'angry';
+  }
+  if (!tone && /\?$/.test(text) && text.length < 40) tone = '';
   const d = TONES[tone] || TONES[''];
   return { text, rate: d.rate, gain: d.gain, pause: d.pause, tone };
 }
